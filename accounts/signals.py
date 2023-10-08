@@ -14,5 +14,5 @@ def create_user_instance(sender, instance, created, **kwargs):
                Student.objects.create(user=instance)
           elif instance.is_teacher:
                Teacher.objects.create(user=instance)
-               
+                      
 post_save.connect(create_user_instance, sender=User)
