@@ -22,4 +22,4 @@ class TeacherRegisterationSerializer(serializers.ModelSerializer):
 class InstituteRegisterationSerializer(serializers.ModelSerializer):
      class Meta:
           model=User
-          field=["institute_name","email","phone_number","unique_code","is_institute","is_blocked"]
+          fields=["institute_name","email","password","phone_number"]
