@@ -5,6 +5,7 @@ from django.utils import timezone
 from ..models import User
 from rest_framework import status
 from rest_framework.response import Response
+from django.core.mail import EmailMessage
 
 class MessageHandler:
      
@@ -12,7 +13,6 @@ class MessageHandler:
      def get_object(self,pk):
           try:
                user=User.objects.get(id=pk)
-               print("get_object() user",user)
           except User.DoesNotExist:
                raise 
           return user
@@ -35,25 +35,32 @@ class MessageHandler:
                if instance.otp == str(otp):
                     instance.is_active=True
                     instance.max_otp_try=settings.MAX_OTP_TRY
-                    instance.save()
-                    return Response({"msg":
-                    "Successfully Verified the user."}, status=status.HTTP_200_OK
+                    instance.save(update_fields=['is_active','max_otp_try'])
+                    
+                    # Sending Unique Code and Password for User Login
+                    email=EmailMessage(
+                         subject="Hi User Thank You For Registering with Us",
+                         body=f"Here is your Login ID: {instance.unique_code} and Password: {instance.password}",
+                         from_email=settings.EMAIL_HOST_USER,
+                         to=[instance.email]
                     )
+                    email.send()
+                    return Response({"msg":"Successfully Verified the user."}, status=status.HTTP_200_OK)
+               
                instance.max_otp_try =  int(instance.max_otp_try)-1
-               instance.save()
+               instance.save(update_fields=['max_otp_try'])
                
                # If User is not active and Maximum OTP Try Reached
-               if int(instance.max_otp_try) == -1:
+               if int(instance.max_otp_try) < -1:
                     return Response({"msg":"Max OTP Attempt Please Generate New OTP"},status=status.HTTP_400_BAD_REQUEST)
                
                # If the user trying to enter OTP
                return Response({f"You Have Only {instance.max_otp_try} Try left"},status=status.HTTP_200_OK)   
           
           # If User Is Already Verified
-          return Response(
-          "User is Already Verified",
-          status=status.HTTP_400_BAD_REQUEST,
-          )
+          return Response("User is Already Verified",status=status.HTTP_400_BAD_REQUEST)
+          
+          
           
      
      # Regenerating OTP, two cases if the OTP Didn't reached Or Maximum OTP Try Reached
@@ -62,7 +69,7 @@ class MessageHandler:
           instance=self.get_object(pk)
           instance.otp=otp
           instance.max_otp_try=settings.MAX_OTP_TRY
-          instance.save()
+          instance.save(update_fields=['otp','max_otp_try'])
           self.send_otp_on_phone(instance.phone_number,otp)
           return Response({"msg":"Regenerate OTP Successfullly"},status=status.HTTP_200_OK)
-          
+

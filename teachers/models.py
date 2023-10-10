@@ -8,3 +8,6 @@ class Teacher(models.Model):
      
      def __str__(self):
         return self.user.first_name if self.user else "No Teacher"
+     
+class TeacherProfile(models.Model):
+   user=models.OneToOneField(Teacher,on_delete= models.CASCADE,null=True,related_name='teacher_profile')

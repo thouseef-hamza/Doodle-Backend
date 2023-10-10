@@ -7,7 +7,9 @@ from django.conf import settings
 
 class User(AbstractUser):
      # Three User Institute, Teacher, Student 
+     institute_name=models.CharField(max_length=50,blank=True,null=True)
      email=models.EmailField(unique=True)
+     username=models.CharField(max_length=20,blank=True,null=True,unique=True)
      phone_number = models.CharField(unique=True,max_length=15,blank=True,null=True)
      is_institute = models.BooleanField(default=False)
      is_student = models.BooleanField(default=False)
@@ -18,6 +20,6 @@ class User(AbstractUser):
      max_otp_try=models.CharField(max_length=2,default=settings.MAX_OTP_TRY)
      
      USERNAME_FIELD='email'
-     REQUIRED_FIELDS=["phone_number","username"]
+     REQUIRED_FIELDS=["phone_number"]
      
      

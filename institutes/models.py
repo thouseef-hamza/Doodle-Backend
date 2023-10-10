@@ -4,7 +4,11 @@ from accounts.models import User
 # Create your models here.
 
 class Institute(models.Model):
-     user=models.OneToOneField(User,on_delete=models.SET_NULL,null=True,related_name='Institute')
+   user=models.OneToOneField(User,on_delete=models.SET_NULL,null=True,related_name='Institute')
+   
+   def __str__(self):
+      return self.user.institute_name if self.user else "No Institute"
      
-     def __str__(self):
-        return self.user.institute_name if self.user else "No Institute"
+
+class InstituteProfile(models.Model):
+   user=models.OneToOneField(Institute,models.SET_NULL,null=True,related_name='institute_profile')

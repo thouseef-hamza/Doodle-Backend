@@ -48,12 +48,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
+    "debug_toolbar",
     'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -202,3 +204,15 @@ TWILIO_AUTH_TOKEN=os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER=os.getenv("TWILIO_PHONE_NUMBER")
 MAX_OTP_TRY = 3
 
+# Django SMTP Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER=os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD=os.getenv("EMAIL_HOST_PASSWORD")
+
+# DEBUG Toolbar configuration
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
