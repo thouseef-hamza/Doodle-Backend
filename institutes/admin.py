@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Institute
+from .models import InstituteProfile
+
 # Register your models here.
 
-admin.site.register(Institute)
+admin.site.register(InstituteProfile)
