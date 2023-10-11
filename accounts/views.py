@@ -8,6 +8,7 @@ from .api.serializers import (
     OTPVerificationSerializer,
     UserLoginSerializer,
     UserSerializer,
+    ChangePasswordSerializer,
 )
 from .models import User
 from .services.messages import message_otp
@@ -17,7 +18,9 @@ from .helpers.password_generator import generate_random_password
 from django.contrib.auth import authenticate
 from django.conf import settings
 from .jwt.tokens import MyTokenObtainPairSerializer
-
+from django.urls import reverse_lazy
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 import random
 
 
@@ -136,15 +139,20 @@ class UserLoginAPIVew(APIView):
             if unique_code is not None:
                 user = authenticate(request, unique_code=unique_code, password=password)
                 if user is not None:
+                    token = custom_token_serializer.get_token(user)
                     if user.last_login is None:
-                        
+                        url=reverse_lazy('user-change-password')
                         response_data = {
                             "message": "User needs to redirect to change password",
+                            "redirect-api":url,
+                            "jwt-token":{
+                                "access":str(token.access_token),
+                                "refresh":str(token)
+                            },
                             "data": UserSerializer(user).data,
                         }
                         return Response(response_data, status=status.HTTP_200_OK)
                                         
-                    token = custom_token_serializer.get_token(user)
                     response_data = {
                         "mes":"User Log in Successfully",
                         "jwt-token":{
@@ -160,5 +168,25 @@ class UserLoginAPIVew(APIView):
 
 
 class ChangePasswordAPIView(APIView):
-    pass
+    permission_classes=(IsAuthenticated,)
+    def patch(self,request,*args, **kwargs):
+        serializer=ChangePasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            print("inside")
+            user=request.user
+            
+            # Here i am checking he entered last password correctly or not
+            if not user.check_password(serializer.data.get("old_password")):
+                return Response({"msg": "Old password is incorrect.Try Again"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            
+            user.set_password(serializer.validated_data["new_password"])
+            user.save(update_fields=["password"])
+            
+            response_data = {
+                "msg":"User Password Changed Successfully",
+                "user":UserSerializer(user).data
+            }
+            return Response(response_data,status=status.HTTP_200_OK)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 

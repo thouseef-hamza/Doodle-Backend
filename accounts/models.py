@@ -21,3 +21,11 @@ class User(AbstractUser):
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["phone_number","username"]
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["email","unique_code"]),
+        ]
+    
+    def __str__(self) -> str:
+        return self.email

@@ -8,3 +8,8 @@ class InstituteProfile(models.Model):
     user = models.OneToOneField(
         User, models.SET_NULL, null=True, related_name="institute_profile"
     )
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["user"]),
+        ]

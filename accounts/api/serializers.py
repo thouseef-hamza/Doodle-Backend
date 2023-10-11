@@ -40,13 +40,12 @@ class UserLoginSerializer(serializers.Serializer):
     unique_code = serializers.CharField(required=False)
     password = serializers.CharField(style={"input_type": "password"})
     
-class ChangePasswordSerializer(serializers.ModelSerializer):
+class ChangePasswordSerializer(serializers.Serializer):
     new_password=serializers.CharField(required=True)
+    old_password=serializers.CharField(required=True)
     
-    class Meta:
-        model=User
+    
         
         
-from rest_framework.permissions import IsAuthenticated
     
     
