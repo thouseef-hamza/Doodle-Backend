@@ -67,7 +67,7 @@ class InstituteRegisterationAPIView(APIView):
             message_otp.send_otp_on_phone(user.phone_number, user.otp)
             response_data = {
                 "msg": "Institute Registered Successfully",
-                "data":UserSerializer(user).data,
+                "data": UserSerializer(user).data,
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -108,12 +108,12 @@ class UserLoginAPIVew(APIView):
     def post(self, request, *args, **kwargs):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data.get("email",None)
+            email = serializer.validated_data.get("email", None)
             unique_code = serializer.validated_data.get("unique_code", None)
             password = serializer.validated_data["password"]
-            
-            # Custom claims for jwt tokens and 
-            # manually creating jwt token using Refresh Token 
+
+            # Custom claims for jwt tokens and
+            # manually creating jwt token using Refresh Token
             # also configured in settings.py
             custom_token_serializer = MyTokenObtainPairSerializer()
 
@@ -126,67 +126,75 @@ class UserLoginAPIVew(APIView):
                 if user is not None:
                     token = custom_token_serializer.get_token(user)
                     response_data = {
-                        "mes":"User Log in Successfully",
-                        "jwt-token":{
-                            "access":str(token.access_token),
-                            "refresh":str(token)
+                        "mes": "User Log in Successfully",
+                        "jwt-token": {
+                            "access": str(token.access_token),
+                            "refresh": str(token),
                         },
                         "data": UserSerializer(user).data,
                     }
                     return Response(response_data, status=status.HTTP_200_OK)
-                return Response({"msg":"User Not Found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"msg": "User Not Found"}, status=status.HTTP_404_NOT_FOUND
+                )
 
             if unique_code is not None:
                 user = authenticate(request, unique_code=unique_code, password=password)
                 if user is not None:
                     token = custom_token_serializer.get_token(user)
                     if user.last_login is None:
-                        url=reverse_lazy('user-change-password')
+                        url = reverse_lazy("user-change-password")
                         response_data = {
                             "message": "User needs to redirect to change password",
-                            "redirect-api":url,
-                            "jwt-token":{
-                                "access":str(token.access_token),
-                                "refresh":str(token)
+                            "redirect-api": url,
+                            "jwt-token": {
+                                "access": str(token.access_token),
+                                "refresh": str(token),
                             },
                             "data": UserSerializer(user).data,
                         }
                         return Response(response_data, status=status.HTTP_200_OK)
-                                        
+
                     response_data = {
-                        "mes":"User Log in Successfully",
-                        "jwt-token":{
-                            "access":str(token.access_token),
-                            "refresh":str(token)
+                        "mes": "User Log in Successfully",
+                        "jwt-token": {
+                            "access": str(token.access_token),
+                            "refresh": str(token),
                         },
                         "data": UserSerializer(user).data,
                     }
                     return Response(response_data, status=status.HTTP_200_OK)
                 raise AuthenticationFailed("There is no User")
-            return Response({"msg":"There is no valid Credentials"},status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"msg": "There is no valid Credentials"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ChangePasswordAPIView(APIView):
-    permission_classes=(IsAuthenticated,)
-    def patch(self,request,*args, **kwargs):
-        serializer=ChangePasswordSerializer(data=request.data)
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JWTAuthentication,)
+
+    def patch(self, request, *args, **kwargs):
+        serializer = ChangePasswordSerializer(data=request.data)
         if serializer.is_valid():
             print("inside")
-            user=request.user
-            
+            user = request.user
+
             # Here i am checking he entered last password correctly or not
             if not user.check_password(serializer.data.get("old_password")):
-                return Response({"msg": "Old password is incorrect.Try Again"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            
+                return Response(
+                    {"msg": "Old password is incorrect.Try Again"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             user.set_password(serializer.validated_data["new_password"])
             user.save(update_fields=["password"])
-            
-            response_data = {
-                "msg":"User Password Changed Successfully",
-                "user":UserSerializer(user).data
-            }
-            return Response(response_data,status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+            response_data = {
+                "msg": "User Password Changed Successfully",
+                "user": UserSerializer(user).data,
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

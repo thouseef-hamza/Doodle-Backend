@@ -20,12 +20,12 @@ class User(AbstractUser):
     max_otp_try = models.CharField(max_length=2, default=settings.MAX_OTP_TRY)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number","username"]
-    
+    REQUIRED_FIELDS = ["phone_number", "username"]
+
     class Meta:
         indexes = [
-            models.Index(fields=["email","unique_code"]),
+            models.Index(fields=["email", "unique_code"]),
         ]
-    
+
     def __str__(self) -> str:
         return self.email

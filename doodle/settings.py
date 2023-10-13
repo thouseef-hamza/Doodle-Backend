@@ -153,7 +153,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=3),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -187,6 +187,7 @@ CORS_ALLOWED_ORIGINS = [
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+TWILIO_SERVICE_SID = os.getenv("TWILIO_SERVICE_SID")
 MAX_OTP_TRY = 3
 
 # Django SMTP Configuration
@@ -205,6 +206,5 @@ INTERNAL_IPS = [
 # This Configuration is for my User Authentication
 AUTHENTICATION_BACKENDS = [
     "accounts.auth_backends.UserAuthBackend",
-    'django.contrib.auth.backends.ModelBackend',
+    "django.contrib.auth.backends.ModelBackend",
 ]
-

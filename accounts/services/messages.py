@@ -9,13 +9,14 @@ from django.core.mail import EmailMessage
 from rest_framework.exceptions import NotFound
 from ..helpers.password_generator import generate_random_password
 
+
 class MessageHandler:
     # AUTH_USER_MODEL Getting
     def get_object(self, pk):
         try:
             user = User.objects.get(id=pk)
         except User.MultipleObjectsReturned:
-            user=User.objects.filter(id=pk).first()
+            user = User.objects.filter(id=pk).first()
         except User.DoesNotExist:
             return Response(
                 {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
@@ -35,24 +36,29 @@ class MessageHandler:
     def verify_otp(self, otp, pk=None):
         instance = self.get_object(pk)
         if not instance.is_active:
-            
             # If User is not active and OTP Present
             if instance.otp == str(otp):
-                print("yhgbfvdcx")
-
                 instance.is_active = True
                 instance.max_otp_try = settings.MAX_OTP_TRY
                 password = generate_random_password()
-                
+                print("password",password)
+
                 # Generate Unique Code Base on User Role
                 if instance.is_institute:
-                    instance.unique_code="ADMIN %04d" % instance.id
+                    instance.unique_code = "ADMIN %04d" % instance.id
                 if instance.is_student:
-                    instance.unique_code="STU %05d" % instance.id
-                
+                    instance.unique_code = "STU %05d" % instance.id
+
                 instance.set_password(password)
-                instance.save(update_fields=["is_active", "max_otp_try","password","unique_code"])
-                    
+                instance.save(
+                    update_fields=[
+                        "is_active",
+                        "max_otp_try",
+                        "password",
+                        "unique_code",
+                    ]
+                )
+
                 # Sending Unique Code and Password for User Login
                 email = EmailMessage(
                     subject="Hi User Thank You For Registering with Us",
@@ -80,6 +86,7 @@ class MessageHandler:
             )
         # If User Is Already Verified
         from rest_framework.exceptions import AuthenticationFailed
+
         raise AuthenticationFailed("User is already Verified")
 
     # Regenerating OTP, two cases if the OTP Didn't reached Or Maximum OTP Try Reached
@@ -94,3 +101,39 @@ class MessageHandler:
 
 
 message_otp = MessageHandler()
+
+from twilio.rest import Client
+from django.conf import settings
+from twilio.base.exceptions import TwilioRestException
+
+# Find your Account SID and Auth Token at twilio.com/console
+# and set the environment variables. See http://twil.io/secure
+
+client = Client(settings.ACCOUNT_SID,settings.AUTH_TOKEN)
+def send_sms(phone_number):
+    try: 
+        verification = client.verify \
+                        .v2 \
+                        .services(settings.SERVICE_SID) \
+                        .verifications \
+                        .create(to=phone_number, channel='sms')
+        return verification.sid
+    except ConnectionError as e:
+        raise e
+       
+
+def verify_user_code(verification_sid, user_input):
+# Initialize the Twilio client using your account SID and auth token
+
+    # Verify the user-entered code against the verification SID
+    try:
+        verification_check = client.verify \
+        .v2 \
+        .services(settings.SERVICE_SID) \
+        .verification_checks \
+        .create(verification_sid=verification_sid, code=user_input)
+
+    # Return the verification check status
+        return verification_check.status
+    except TwilioRestException as e:
+        raise e
