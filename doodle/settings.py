@@ -11,11 +11,11 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-from dotenv import load_dotenv
-from django.conf import settings
+
+# from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework_simplejwt",
     "debug_toolbar",
-    "rest_framework_simplejwt.token_blacklist",
+    # "rest_framework_simplejwt.token_blacklist",
+    'rest_framework_swagger',
 ]
 
 MIDDLEWARE = [
@@ -89,10 +90,20 @@ WSGI_APPLICATION = "doodle.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'DoodleDB', 
+        'USER': 'postgres',
+        'PASSWORD': '2544',
+        'HOST': '127.0.0.1', 
+        'PORT': '5432',
     }
 }
 
@@ -180,6 +191,7 @@ SIMPLE_JWT = {
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:7000",
+    "http://localhost:5173",
     "http://127.0.0.1:3000",
 ]
 
@@ -203,8 +215,13 @@ INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
 # This Configuration is for my User Authentication
 AUTHENTICATION_BACKENDS = [
     "accounts.auth_backends.UserAuthBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+# MEDIA Configuration

@@ -19,6 +19,6 @@ def create_user_profile_instance(sender, instance, created, **kwargs):
 
 post_save.connect(create_user_profile_instance, sender=User)
 
-    # @receiver(post_save, sender=User)
-    # def save_user_profile(sender, instance, **kwargs):
-    #     instance.instituteprofile.save()
+# @receiver(post_save, sender=User)
+# def save_user_profile(sender, instance, **kwargs):
+#     instance.instituteprofile.save()

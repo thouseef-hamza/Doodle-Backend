@@ -12,8 +12,6 @@ from .api.serializers import (
 )
 from .models import User
 from .services.messages import message_otp
-from .helpers.password_generator import generate_random_password
-
 
 from django.contrib.auth import authenticate
 from django.conf import settings
@@ -29,24 +27,22 @@ class TeacherRegisterationAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = TeacherRegisterationSerializer(data=request.data)
         if serializer.is_valid():
-            otp = random.randint(1000, 9999)
             user = User.objects.create(
                 first_name=serializer.validated_data["first_name"],
                 last_name=serializer.validated_data["last_name"],
                 username=serializer.validated_data["username"],
                 email=serializer.validated_data["email"],
                 phone_number=serializer.validated_data["phone_number"],
-                otp=otp,
                 is_teacher=True,
                 is_active=False,
             )
             user.set_password(serializer.validated_data["password"])
             user.save(update_fields=["password"])
-            response_data = {
+            return Response({
                 "msg": "Teacher Registered Successfully",
                 "data": UserSerializer(user).data,
-            }
-            return Response(response_data, status=status.HTTP_201_CREATED)
+            }, 
+            status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -54,58 +50,59 @@ class InstituteRegisterationAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = InstituteRegisterationSerializer(data=request.data)
         if serializer.is_valid():
-            otp = random.randint(1000, 9999)
             user = User.objects.create(
                 institute_name=serializer.validated_data["institute_name"],
                 email=serializer.validated_data["email"],
                 phone_number=serializer.validated_data["phone_number"],
-                otp=otp,
                 max_otp_try=settings.MAX_OTP_TRY,
                 is_active=False,
                 is_institute=True,
             )
-            message_otp.send_otp_on_phone(user.phone_number, user.otp)
-            response_data = {
+            verification_sid=message_otp.send_otp_on_phone(user.phone_number)
+            print(verification_sid)
+            request.session['verfication_sid'] = verification_sid
+            request.session['phone_number'] = user.phone_number
+            
+            return Response({
                 "msg": "Institute Registered Successfully",
                 "data": UserSerializer(user).data,
-            }
-            return Response(response_data, status=status.HTTP_201_CREATED)
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OTPVerificationAPIView(APIView):
     # For OTP Verification
-    def post(self, request, *args, **kwargs):
+    def post(self, request,pk=None ,*args, **kwargs):
+        # verification_sid = request.session.get("verification_sid")
+        verification_sid = "VEa7f3f7dc27c1da854f54115931bf9a24"
+        print(verification_sid)
         serializer = OTPVerificationSerializer(data=request.data)
         if serializer.is_valid():
-            user_id = serializer.validated_data["user_id"]
             otp = serializer.validated_data["otp"]
-            instance = message_otp.verify_otp(
-                otp, pk=user_id
-            )  # message_otp() is from .services.messages
-            response_data = {
+            instance = message_otp.verify_otp(verification_sid,otp=otp,id=pk)  # message_otp() is from .services.messages
+            return Response({
                 "msg": "Successfully Verified the user",
                 "data": UserSerializer(instance).data,
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # For OTP Regenerating
-    def patch(self, request, *args, **kwargs):
-        if request.data["user_id"]:
-            instance = message_otp.regenerate_otp(
-                pk=request.data["user_id"]
-            )  # message_otp() is from .services.messages
-            response_data = {
-                "msg": "Successfully Verified the user",
+    def patch(self, request,pk=None ,*args, **kwargs):
+        serializer=OTPVerificationSerializer(data=request.data)
+        if serializer.is_valid():
+            phone_number=serializer.validated_data.get("phone_number",None)
+            instance = message_otp.regenerate_otp(pk=pk,phone_number=phone_number)  # message_otp() is from .services.messages
+             
+            return Response({
+                "msg": "OTP Regenerated Successfully",
                 "data": UserSerializer(instance).data,
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
         return Response({"msg": "No User ID"}, status=status.HTTP_204_NO_CONTENT)
 
 
 class UserLoginAPIVew(APIView):
     def post(self, request, *args, **kwargs):
+        print(request.data)
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email", None)
@@ -125,15 +122,14 @@ class UserLoginAPIVew(APIView):
                 user = authenticate(request, email=email, password=password)
                 if user is not None:
                     token = custom_token_serializer.get_token(user)
-                    response_data = {
+                    return Response({
                         "mes": "User Log in Successfully",
-                        "jwt-token": {
+                        "jwt_token": {
                             "access": str(token.access_token),
                             "refresh": str(token),
                         },
                         "data": UserSerializer(user).data,
-                    }
-                    return Response(response_data, status=status.HTTP_200_OK)
+                    }, status=status.HTTP_200_OK)
                 return Response(
                     {"msg": "User Not Found"}, status=status.HTTP_404_NOT_FOUND
                 )
@@ -144,26 +140,25 @@ class UserLoginAPIVew(APIView):
                     token = custom_token_serializer.get_token(user)
                     if user.last_login is None:
                         url = reverse_lazy("user-change-password")
-                        response_data = {
+                        print("hiihiii")
+                        return Response({
                             "message": "User needs to redirect to change password",
                             "redirect-api": url,
-                            "jwt-token": {
+                            "jwt_token": {
                                 "access": str(token.access_token),
                                 "refresh": str(token),
                             },
                             "data": UserSerializer(user).data,
-                        }
-                        return Response(response_data, status=status.HTTP_200_OK)
-
-                    response_data = {
+                        }, status=status.HTTP_200_OK)
+                    print("iughbhbhbjh")
+                    return Response({
                         "mes": "User Log in Successfully",
-                        "jwt-token": {
+                        "jwt_token": {
                             "access": str(token.access_token),
                             "refresh": str(token),
                         },
                         "data": UserSerializer(user).data,
-                    }
-                    return Response(response_data, status=status.HTTP_200_OK)
+                    }, status=status.HTTP_200_OK)
                 raise AuthenticationFailed("There is no User")
             return Response(
                 {"msg": "There is no valid Credentials"},
@@ -179,22 +174,19 @@ class ChangePasswordAPIView(APIView):
     def patch(self, request, *args, **kwargs):
         serializer = ChangePasswordSerializer(data=request.data)
         if serializer.is_valid():
-            print("inside")
-            user = request.user
 
             # Here i am checking he entered last password correctly or not
-            if not user.check_password(serializer.data.get("old_password")):
+            if not request.user.check_password(serializer.data.get("old_password")):
                 return Response(
                     {"msg": "Old password is incorrect.Try Again"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
-            user.set_password(serializer.validated_data["new_password"])
-            user.save(update_fields=["password"])
-
-            response_data = {
+            request.user.set_password(serializer.validated_data["new_password"])
+            from django.utils import timezone
+            request.user.last_login = timezone.now()
+            request.user.save(update_fields=["password","last_login"])
+            return Response({
                 "msg": "User Password Changed Successfully",
-                "user": UserSerializer(user).data,
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+                "user": UserSerializer(request.user).data,
+            }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

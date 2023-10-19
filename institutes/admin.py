@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import InstituteProfile,Batch
+from .models import InstituteProfile, Batch
 
 # Register your models here.
 

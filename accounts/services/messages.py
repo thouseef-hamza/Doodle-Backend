@@ -6,54 +6,75 @@ from ..models import User
 from rest_framework import status
 from rest_framework.response import Response
 from django.core.mail import EmailMessage
-from rest_framework.exceptions import NotFound
 from ..helpers.password_generator import generate_random_password
+from twilio.base.exceptions import TwilioRestException
+from rest_framework.exceptions import AuthenticationFailed
 
 
 class MessageHandler:
     # AUTH_USER_MODEL Getting
     def get_object(self, pk):
+        print(pk,"edrtfyguhijihgfdrftgyhujiyfghbnj")
         try:
             user = User.objects.get(id=pk)
+            print(user)
         except User.MultipleObjectsReturned:
             user = User.objects.filter(id=pk).first()
         except User.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            raise AuthenticationFailed(
+                {"error": "User not found"}
             )
         return user
 
     # Sending OTP via Twilio
-    def send_otp_on_phone(self, phone_number, otp):
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        message = client.messages.create(
-            body=f"Your OTP is {otp}",
-            from_=settings.TWILIO_PHONE_NUMBER,
-            to=str(phone_number),
-        )
+    client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+    def send_otp_on_phone(self, phone_number):
+        try:
+            verification = self.client.verify \
+                            .v2 \
+                            .services(settings.TWILIO_SERVICE_SID) \
+                            .verifications \
+                            .create(to=phone_number, channel='sms')
+            print("verification",verification)
+            return verification.sid
+        except ConnectionError as e:
+            raise e
 
     # Verifying OTP with User Model otp attribute
-    def verify_otp(self, otp, pk=None):
-        instance = self.get_object(pk)
+    def verify_otp(self, verification_sid, otp,id):
+        print(id,"fghujiojkihugyftdfyguhjiokjohiguyftderdtfyguhijhugytfrtderdtfygh")
+        instance = self.get_object(id)
+        print(instance,"drtfyguhjiokjihugyfctdcfghnjojihugyftdcfgvbhnjomknjbvycftdxrfgvbhjnknbugvycftdxr")
+        print(instance.is_active,"None")
         if not instance.is_active:
+            try:
+                verification_check = self.client.verify \
+                .v2 \
+                .services(settings.TWILIO_SERVICE_SID) \
+                .verification_checks \
+                .create(verification_sid=verification_sid, code=otp)
+                print(verification_check.status)
+
+            except TwilioRestException as e:
+                raise e
+            
             # If User is not active and OTP Present
-            if instance.otp == str(otp):
+            if  verification_check.status == "approved":
                 instance.is_active = True
-                instance.max_otp_try = settings.MAX_OTP_TRY
                 password = generate_random_password()
-                print("password",password)
+                print("password", password)
 
                 # Generate Unique Code Base on User Role
                 if instance.is_institute:
                     instance.unique_code = "ADMIN %04d" % instance.id
                 if instance.is_student:
                     instance.unique_code = "STU %05d" % instance.id
+                print(instance.unique_code)
 
                 instance.set_password(password)
                 instance.save(
                     update_fields=[
                         "is_active",
-                        "max_otp_try",
                         "password",
                         "unique_code",
                     ]
@@ -69,71 +90,22 @@ class MessageHandler:
                 email.send()
                 return instance
 
-            # If User is not active and Maximum OTP Try Reached
-            if int(instance.max_otp_try) < -1:
-                return Response(
-                    {"msg": "Max OTP Attempt Please Generate New OTP"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            instance.max_otp_try = int(instance.max_otp_try) - 1
-            instance.save(update_fields=["max_otp_try"])
-
             # If the user trying to enter OTP
             return Response(
-                {f"You Have Only {instance.max_otp_try} Try left"},
+                {f"Some thing went wrong with you credentials Please Try Again Later"},
                 status=status.HTTP_200_OK,
             )
         # If User Is Already Verified
-        from rest_framework.exceptions import AuthenticationFailed
 
         raise AuthenticationFailed("User is already Verified")
 
     # Regenerating OTP, two cases if the OTP Didn't reached Or Maximum OTP Try Reached
-    def regenerate_otp(self, pk=None):
-        otp = random.randint(1000, 9999)
+    def regenerate_otp(self, pk=None,phone_number=None):
         instance = self.get_object(pk)
-        instance.otp = otp
-        instance.max_otp_try = settings.MAX_OTP_TRY
-        instance.save(update_fields=["otp", "max_otp_try"])
-        self.send_otp_on_phone(instance.phone_number, otp)
+        instance.phone_number = phone_number
+        instance.save(update_fields=["phone_number"]) 
+        self.send_otp_on_phone(instance.phone_number)
         return instance
 
 
 message_otp = MessageHandler()
-
-from twilio.rest import Client
-from django.conf import settings
-from twilio.base.exceptions import TwilioRestException
-
-# Find your Account SID and Auth Token at twilio.com/console
-# and set the environment variables. See http://twil.io/secure
-
-client = Client(settings.ACCOUNT_SID,settings.AUTH_TOKEN)
-def send_sms(phone_number):
-    try: 
-        verification = client.verify \
-                        .v2 \
-                        .services(settings.SERVICE_SID) \
-                        .verifications \
-                        .create(to=phone_number, channel='sms')
-        return verification.sid
-    except ConnectionError as e:
-        raise e
-       
-
-def verify_user_code(verification_sid, user_input):
-# Initialize the Twilio client using your account SID and auth token
-
-    # Verify the user-entered code against the verification SID
-    try:
-        verification_check = client.verify \
-        .v2 \
-        .services(settings.SERVICE_SID) \
-        .verification_checks \
-        .create(verification_sid=verification_sid, code=user_input)
-
-    # Return the verification check status
-        return verification_check.status
-    except TwilioRestException as e:
-        raise e

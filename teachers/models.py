@@ -10,9 +10,6 @@ class TeacherProfile(models.Model):
     )
 
     class Meta:
-        indexes = [
-            models.Index(fields=["user"]),
-        ]
         verbose_name = "Teacher Profile"
         verbose_name_plural = "Teacher Profiles"
 
