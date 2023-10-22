@@ -12,5 +12,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["is_institute"] = user.is_institute
         token["is_teacher"] = user.is_teacher
         token["is_student"] = user.is_student
+        token["is_active"] = user.is_active
 
         return token

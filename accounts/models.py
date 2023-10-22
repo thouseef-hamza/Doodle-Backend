@@ -16,9 +16,8 @@ class User(AbstractUser):
     is_teacher = models.BooleanField(default=False)
     is_blocked = models.BooleanField(default=False)
     unique_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    otp = models.CharField(max_length=8, blank=True, null=True)
-    max_otp_try = models.CharField(max_length=2, default=settings.MAX_OTP_TRY)
-
+    verification_sid = models.CharField(max_length=55,blank=True)
+    
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["phone_number", "username"]
 

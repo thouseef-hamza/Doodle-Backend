@@ -20,6 +20,7 @@ from django.urls import reverse_lazy
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 import random
+from django.utils import timezone
 
 
 # Create your views here.
@@ -48,38 +49,39 @@ class TeacherRegisterationAPIView(APIView):
 
 class InstituteRegisterationAPIView(APIView):
     def post(self, request, *args, **kwargs):
+        print("thousi")
         serializer = InstituteRegisterationSerializer(data=request.data)
         if serializer.is_valid():
-            user = User.objects.create(
-                institute_name=serializer.validated_data["institute_name"],
-                email=serializer.validated_data["email"],
-                phone_number=serializer.validated_data["phone_number"],
-                max_otp_try=settings.MAX_OTP_TRY,
-                is_active=False,
-                is_institute=True,
-            )
-            verification_sid=message_otp.send_otp_on_phone(user.phone_number)
-            print(verification_sid)
-            request.session['verfication_sid'] = verification_sid
-            request.session['phone_number'] = user.phone_number
-            
-            return Response({
-                "msg": "Institute Registered Successfully",
-                "data": UserSerializer(user).data,
-            }, status=status.HTTP_201_CREATED)
+            verification_sid=message_otp.send_otp_on_phone(serializer.validated_data["phone_number"])
+            if verification_sid == "Invalid Phone Number":
+                return Response({"msg":"Invalid Phone Number"},status=status.HTTP_404_NOT_FOUND)
+            elif verification_sid == "Service Unavailable":
+                return Response({"msg":"Our Service is not available.Please Try Again Later"},status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            else:
+                user = User.objects.create(
+                    institute_name=serializer.validated_data["institute_name"],
+                    email=serializer.validated_data["email"],
+                    phone_number=serializer.validated_data["phone_number"],
+                    verification_sid=verification_sid,
+                    is_active=False,
+                    is_institute=True,
+                )
+                
+                return Response({
+                    "msg": "Institute Registered Successfully",
+                    "data": UserSerializer(user).data,
+                }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OTPVerificationAPIView(APIView):
     # For OTP Verification
     def post(self, request,pk=None ,*args, **kwargs):
-        # verification_sid = request.session.get("verification_sid")
-        verification_sid = "VEa7f3f7dc27c1da854f54115931bf9a24"
-        print(verification_sid)
+        user=User.objects.filter(id=pk).first()
         serializer = OTPVerificationSerializer(data=request.data)
         if serializer.is_valid():
             otp = serializer.validated_data["otp"]
-            instance = message_otp.verify_otp(verification_sid,otp=otp,id=pk)  # message_otp() is from .services.messages
+            instance = message_otp.verify_otp(user.verification_sid,otp=otp,id=pk)  # message_otp() is from .services.messages
             return Response({
                 "msg": "Successfully Verified the user",
                 "data": UserSerializer(instance).data,
@@ -91,16 +93,27 @@ class OTPVerificationAPIView(APIView):
         serializer=OTPVerificationSerializer(data=request.data)
         if serializer.is_valid():
             phone_number=serializer.validated_data.get("phone_number",None)
-            instance = message_otp.regenerate_otp(pk=pk,phone_number=phone_number)  # message_otp() is from .services.messages
-             
-            return Response({
-                "msg": "OTP Regenerated Successfully",
-                "data": UserSerializer(instance).data,
-            }, status=status.HTTP_200_OK)
+            verification_sid = message_otp.regenerate_otp(pk=pk,phone_number=phone_number)  # message_otp() is from .services.messages
+            
+            # Handling Twilio Exceptions
+            if verification_sid == "Invalid Phone Number":
+                return Response({"msg":"Invalid Phone Number"},status=status.HTTP_400_BAD_REQUEST)
+            
+            elif verification_sid == "Service Unavailable":
+                return Response({"msg":"Our Service is not available.Please Try Again Later"},status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            else:
+                user=User.objects.filter(id=pk).first()
+                user.verification_sid = verification_sid
+                user.save(update_fields=["verification_sid"])
+                return Response({
+                    "msg": "OTP Regenerated Successfully",
+                    "data": UserSerializer(user).data,
+                }, status=status.HTTP_200_OK)
+            
         return Response({"msg": "No User ID"}, status=status.HTTP_204_NO_CONTENT)
 
 
-class UserLoginAPIVew(APIView):
+class UserLoginAPIVew(APIView): 
     def post(self, request, *args, **kwargs):
         print(request.data)
         serializer = UserLoginSerializer(data=request.data)
@@ -140,7 +153,6 @@ class UserLoginAPIVew(APIView):
                     token = custom_token_serializer.get_token(user)
                     if user.last_login is None:
                         url = reverse_lazy("user-change-password")
-                        print("hiihiii")
                         return Response({
                             "message": "User needs to redirect to change password",
                             "redirect-api": url,
@@ -150,7 +162,6 @@ class UserLoginAPIVew(APIView):
                             },
                             "data": UserSerializer(user).data,
                         }, status=status.HTTP_200_OK)
-                    print("iughbhbhbjh")
                     return Response({
                         "mes": "User Log in Successfully",
                         "jwt_token": {
@@ -182,7 +193,6 @@ class ChangePasswordAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             request.user.set_password(serializer.validated_data["new_password"])
-            from django.utils import timezone
             request.user.last_login = timezone.now()
             request.user.save(update_fields=["password","last_login"])
             return Response({

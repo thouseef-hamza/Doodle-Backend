@@ -11,6 +11,7 @@ from twilio.base.exceptions import TwilioRestException
 from rest_framework.exceptions import AuthenticationFailed
 
 
+
 class MessageHandler:
     # AUTH_USER_MODEL Getting
     def get_object(self, pk):
@@ -35,17 +36,16 @@ class MessageHandler:
                             .services(settings.TWILIO_SERVICE_SID) \
                             .verifications \
                             .create(to=phone_number, channel='sms')
-            print("verification",verification)
             return verification.sid
+        except TwilioRestException:
+            return "Invalid Phone Number"
         except ConnectionError as e:
-            raise e
+            return "Service Unavailable"
+        
 
     # Verifying OTP with User Model otp attribute
     def verify_otp(self, verification_sid, otp,id):
-        print(id,"fghujiojkihugyftdfyguhjiokjohiguyftderdtfyguhijhugytfrtderdtfygh")
         instance = self.get_object(id)
-        print(instance,"drtfyguhjiokjihugyfctdcfghnjojihugyftdcfgvbhnjomknjbvycftdxrfgvbhjnknbugvycftdxr")
-        print(instance.is_active,"None")
         if not instance.is_active:
             try:
                 verification_check = self.client.verify \
@@ -53,11 +53,11 @@ class MessageHandler:
                 .services(settings.TWILIO_SERVICE_SID) \
                 .verification_checks \
                 .create(verification_sid=verification_sid, code=otp)
-                print(verification_check.status)
 
             except TwilioRestException as e:
                 raise e
             
+            print(verification_check.status)
             # If User is not active and OTP Present
             if  verification_check.status == "approved":
                 instance.is_active = True
@@ -88,24 +88,23 @@ class MessageHandler:
                     to=[instance.email],
                 )
                 email.send()
-                return instance
-
+                return instance 
+            elif  verification_check.status == "pending":
             # If the user trying to enter OTP
-            return Response(
-                {f"Some thing went wrong with you credentials Please Try Again Later"},
-                status=status.HTTP_200_OK,
-            )
+                raise AuthenticationFailed("Your Request Has Been Validating") 
+            else:
+                raise AuthenticationFailed("Please Check Your OTP") 
         # If User Is Already Verified
 
         raise AuthenticationFailed("User is already Verified")
-
-    # Regenerating OTP, two cases if the OTP Didn't reached Or Maximum OTP Try Reached
+    
+     # Regenerating OTP, two cases if the OTP Didn't reached Or Maximum OTP Try Reached
     def regenerate_otp(self, pk=None,phone_number=None):
         instance = self.get_object(pk)
         instance.phone_number = phone_number
+        verification_sid=self.send_otp_on_phone(instance.phone_number)
         instance.save(update_fields=["phone_number"]) 
-        self.send_otp_on_phone(instance.phone_number)
-        return instance
-
+        return verification_sid
+ 
 
 message_otp = MessageHandler()
