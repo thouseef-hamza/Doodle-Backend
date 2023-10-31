@@ -6,7 +6,7 @@ from accounts.models import User
 
 class InstituteProfile(models.Model):
     user = models.OneToOneField(
-        User, models.CASCADE, related_name="profile", primary_key=True
+        User, models.CASCADE, related_name="institute_profile", primary_key=True
     )
     profile_image = models.ImageField(upload_to="profile/", null=True, blank=True)
     address = models.CharField(max_length=255)
@@ -20,15 +20,21 @@ class InstituteProfile(models.Model):
     class Meta:
         verbose_name = "Institute Profile"
         verbose_name_plural = "Institute Profiles"
-    
+
     def __str__(self) -> str:
-        return self.user.institute_name if self.user else "No Institute"
+        return self.user.get_full_name() if self.user else "No Institute"
+
+
+class Topic(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
 
 
 class Batch(models.Model):
-    user = models.ForeignKey(
-        InstituteProfile, models.CASCADE, null=True, default="Batch"
-    )
+    institute = models.ForeignKey(InstituteProfile, models.CASCADE, null=True)
+    topics = models.ManyToManyField(Topic)
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     description = models.TextField(blank=True, null=True)

@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "debug_toolbar",
     # "rest_framework_simplejwt.token_blacklist",
-    'rest_framework_swagger',
+    "rest_framework_swagger",
 ]
 
 MIDDLEWARE = [
@@ -97,13 +97,13 @@ WSGI_APPLICATION = "doodle.wsgi.application"
 #     }
 # }
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'DoodleDB', 
-        'USER': 'postgres',
-        'PASSWORD': '2544',
-        'HOST': '127.0.0.1', 
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": "DoodleDB",
+        "USER": "postgres",
+        "PASSWORD": "2544",
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
     }
 }
 
@@ -164,7 +164,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=3),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=10),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,

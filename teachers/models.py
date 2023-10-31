@@ -6,7 +6,7 @@ from accounts.models import User
 
 class TeacherProfile(models.Model):
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, null=True, related_name="teacher_profile"
+        User, on_delete=models.CASCADE, related_name="teacher_profile"
     )
 
     class Meta:

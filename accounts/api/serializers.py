@@ -26,15 +26,16 @@ class TeacherRegisterationSerializer(serializers.ModelSerializer):
 
 
 class InstituteRegisterationSerializer(serializers.ModelSerializer):
+    institute_name = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
         fields = ["id", "institute_name", "email", "phone_number"]
 
 
 class OTPVerificationSerializer(serializers.Serializer):
-    otp = serializers.CharField(max_length=6,required=False)
-    phone_number=serializers.CharField(max_length=15)
-    
+    otp = serializers.CharField(max_length=6, required=False)
+    phone_number = serializers.CharField(max_length=15)
 
 
 class UserLoginSerializer(serializers.Serializer):

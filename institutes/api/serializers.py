@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from ..models import InstituteProfile
 from accounts.models import User
+from ..models import Batch, Topic
+from students.models import StudentProfile
 
 
 class InstituteProfileSerializer(serializers.ModelSerializer):
@@ -14,6 +16,7 @@ class InstituteSerializer(serializers.ModelSerializer):
     profile = InstituteProfileSerializer()
     email = serializers.EmailField(required=True)
     phone_number = serializers.CharField(required=True)
+    institute_name = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -48,3 +51,59 @@ class InstituteSerializer(serializers.ModelSerializer):
         user = User.objects.create(**validated_data)
         InstituteProfile.objects.create(user=user, **profile_data)
         return user
+
+
+class TopicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
+        fields = "__all__"
+
+
+class BatchSerializer(serializers.ModelSerializer):
+    topics = TopicSerializer(many=True, required=False)
+
+    class Meta:
+        model = Batch
+        fields = "__all__"
+
+
+class UserStudentProfileSerializer(serializers.ModelSerializer):
+    batch = BatchSerializer(read_only=True)
+
+    class Meta:
+        model = StudentProfile
+        exclude = ("user",)
+        depth = 1
+
+
+class UserStudentSerializer(serializers.ModelSerializer):
+    student_profile = UserStudentProfileSerializer(many=False,required=False)
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "is_student",
+            "unique_code",
+            "student_profile",
+        )    
+        
+    def validate_email(self, value):
+        print(value)
+        instance=self.field_name["id"]
+        print(instance,"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
+        if User.objects.exclude(pk=instance.id).filter(email=value).exists():
+            raise serializers.ValidationError(
+                {"email": "This email is already in use."}
+            )
+        return value
+        
+    def update(self, instance, validated_data):
+        profile_data=validated_data.pop("student_profile",{})
+        print(profile_data)
+        UserStudentProfileSerializer(data=profile_data).update(instance=instance.student_profile,validated_data=profile_data)
+        return super().update(instance, validated_data)
