@@ -65,6 +65,7 @@ class BatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Batch
         fields = "__all__"
+        read_only_fields = ("institute",)
 
 
 class UserStudentProfileSerializer(serializers.ModelSerializer):
@@ -72,12 +73,12 @@ class UserStudentProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProfile
-        exclude = ("user",)
+        exclude = ("user", "id")
         depth = 1
 
 
 class UserStudentSerializer(serializers.ModelSerializer):
-    student_profile = UserStudentProfileSerializer(many=False,required=False)
+    student_profile = UserStudentProfileSerializer(many=False, required=False)
 
     class Meta:
         model = User
@@ -90,20 +91,49 @@ class UserStudentSerializer(serializers.ModelSerializer):
             "is_student",
             "unique_code",
             "student_profile",
-        )    
-        
+        )
+        read_only_fields = ("id", "is_student")
+
     def validate_email(self, value):
-        print(value)
-        instance=self.field_name["id"]
-        print(instance,"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
-        if User.objects.exclude(pk=instance.id).filter(email=value).exists():
-            raise serializers.ValidationError(
-                {"email": "This email is already in use."}
-            )
-        return value
+        # Profile Updation
+        if not self.instance is None:
+            if (
+                User.objects.exclude(id=self.instance.id)
+                .filter(email=value)
+                .exists()
+            ):
+                raise serializers.ValidationError(
+                    {"email": "This email is already in use."}
+                )
+            return value
         
+        # New User Creating
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError({"email": "This email is already in use."})
+        return value
+
+    def validate_phone_number(self, value):
+        
+        # Profile Updation
+        if not self.instance is None:
+            if (
+                User.objects.exclude(id=self.instance.id)
+                .filter(phone_number=value)
+                .exists()
+            ):
+                raise serializers.ValidationError(
+                    {"phone_number": "This Phone Number is already in use."}
+                )
+            return value
+        
+        # New User Creating
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError({"phone_number": "This Phone Number is already in use."})
+        return value
+
     def update(self, instance, validated_data):
-        profile_data=validated_data.pop("student_profile",{})
-        print(profile_data)
-        UserStudentProfileSerializer(data=profile_data).update(instance=instance.student_profile,validated_data=profile_data)
+        profile_data = validated_data.pop("student_profile", {})
+        UserStudentProfileSerializer(data=profile_data).update(
+            instance=instance.student_profile, validated_data=profile_data
+        )
         return super().update(instance, validated_data)

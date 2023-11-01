@@ -50,7 +50,6 @@ class TeacherRegisterationAPIView(APIView):
 
 class InstituteRegisterationAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        print("thousi")
         serializer = InstituteRegisterationSerializer(data=request.data)
         if serializer.is_valid():
             verification_sid = message_otp.send_otp_on_phone(
@@ -67,7 +66,8 @@ class InstituteRegisterationAPIView(APIView):
                 )
             else:
                 institute_name = serializer.validated_data.pop("institute_name")
-                first_name, last_name = institute_name.split(" ", 1)
+                institute_name_split = institute_name.split(" ", 1)
+                first_name , last_name =institute_name_split[0] , institute_name_split[1] if len(institute_name_split) > 1 else ' '
                 user = User.objects.create(
                     first_name=first_name,
                     last_name=last_name,
