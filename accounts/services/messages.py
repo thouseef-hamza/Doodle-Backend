@@ -10,10 +10,8 @@ from rest_framework.exceptions import AuthenticationFailed
 class MessageHandler:
     # AUTH_USER_MODEL Getting
     def get_object(self, pk):
-        print(pk, "edrtfyguhijihgfdrftgyhujiyfghbnj")
         try:
             user = User.objects.get(id=pk)
-            print(user)
         except User.MultipleObjectsReturned:
             user = User.objects.filter(id=pk).first()
         except User.DoesNotExist:
@@ -48,12 +46,10 @@ class MessageHandler:
             except TwilioRestException as e:
                 raise e
 
-            print(verification_check.status)
             # If User is not active and OTP Present
             if verification_check.status == "approved":
                 instance.is_active = True
                 password = generate_random_password()
-                print("password", password)
 
                 # Generate Unique Code Base on User Role
                 if instance.is_institute:

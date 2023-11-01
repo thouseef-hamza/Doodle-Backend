@@ -97,23 +97,20 @@ class UserStudentSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         # Profile Updation
         if not self.instance is None:
-            if (
-                User.objects.exclude(id=self.instance.id)
-                .filter(email=value)
-                .exists()
-            ):
+            if User.objects.exclude(id=self.instance.id).filter(email=value).exists():
                 raise serializers.ValidationError(
                     {"email": "This email is already in use."}
                 )
             return value
-        
+
         # New User Creating
         if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError({"email": "This email is already in use."})
+            raise serializers.ValidationError(
+                {"email": "This email is already in use."}
+            )
         return value
 
     def validate_phone_number(self, value):
-        
         # Profile Updation
         if not self.instance is None:
             if (
@@ -125,10 +122,12 @@ class UserStudentSerializer(serializers.ModelSerializer):
                     {"phone_number": "This Phone Number is already in use."}
                 )
             return value
-        
+
         # New User Creating
         if User.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError({"phone_number": "This Phone Number is already in use."})
+            raise serializers.ValidationError(
+                {"phone_number": "This Phone Number is already in use."}
+            )
         return value
 
     def update(self, instance, validated_data):

@@ -22,7 +22,9 @@ from .models import Batch
 from django.shortcuts import get_object_or_404
 from students.models import StudentProfile
 from django.db.models import Q
-import json
+from accounts.helpers.password_generator import generate_random_password
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 
 class InstituteProfileAPIView(APIView):
@@ -106,11 +108,13 @@ class BatchListCreateAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
-        queryset = Batch.objects.filter(
-            institute__user_id=request.user.id
-        ).order_by("id")
+        queryset = Batch.objects.filter(institute__user_id=request.user.id).order_by(
+            "id"
+        )
         if not queryset:
-            return Response({"msg":"No Batches Found"},status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"msg": "No Batches Found"}, status=status.HTTP_404_NOT_FOUND
+            )
         serializer = BatchSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -133,16 +137,20 @@ class BatchGetUpdateAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, pk=None, *args, **kwargs):
-        queryset = Batch.objects.filter(Q(id=pk) & Q(institute__user_id=request.user.id)).first()
+        queryset = Batch.objects.filter(
+            Q(id=pk) & Q(institute__user_id=request.user.id)
+        ).first()
         if not queryset:
-            return Response({"msg":"No Batch Found"},status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "No Batch Found"}, status=status.HTTP_404_NOT_FOUND)
         serializer = BatchSerializer(queryset)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk=None, *args, **kwargs):
-        instance = Batch.objects.filter(Q(id=pk) & Q(institute__user_id=request.user.id)).first()
+        instance = Batch.objects.filter(
+            Q(id=pk) & Q(institute__user_id=request.user.id)
+        ).first()
         if instance is None:
-            return Response({"msg":"No Data"},status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "No Data"}, status=status.HTTP_404_NOT_FOUND)
         serializer = BatchSerializer(instance, data=request.data)
         if serializer.is_valid():
             instance.name = serializer.validated_data.get("name", instance.name)
@@ -152,6 +160,17 @@ class BatchGetUpdateAPIView(APIView):
             instance.save(update_fields=["name", "description"])
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk=None, *args, **kwargs):
+        batch = Batch.objects.filter(
+            Q(id=pk) & Q(institute__user_id=request.user.id)
+        ).first()
+        if not batch:
+            return Response({"msg": "No Batch Found"}, status=status.HTTP_404_NOT_FOUND)
+        batch.delete()
+        return Response(
+            {"msg": "Batch Deleted Successfully"}, status=status.HTTP_204_NO_CONTENT
+        )
 
 
 class StudentListCreateAPIView(APIView):
@@ -163,9 +182,11 @@ class StudentListCreateAPIView(APIView):
         batches = Batch.objects.filter(institute__user_id=request.user.id)
 
         # According to filtered batches listing all the students
-        students = User.objects.filter(student_profile__batch__id__in=batches).order_by("id")
+        students = User.objects.filter(student_profile__batch__id__in=batches).order_by(
+            "id"
+        )
         if not students:
-            return Response({"msg":"No Students"},status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "No Students"}, status=status.HTTP_404_NOT_FOUND)
         serializer = UserStudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -187,12 +208,34 @@ class StudentListCreateAPIView(APIView):
                 phone_number=serializer.validated_data.get("phone_number", None),
                 is_student=True,
             )
+            password = generate_random_password()
+            user.unique_code = "STU %06d" % user.id
+            user.set_password(password)
+            user.save(update_fields=["unique_code", "password"])
             student = StudentProfile.objects.filter(user=user).first()
             student.batch = batch
-            student.save()
+            student.save(update_fields=["batch"])
+            # Sending Unique Code and Password for User Login
+            email = EmailMessage(
+                subject=f"Login Credentials from {student.batch.institute.user.get_full_name()}",
+                body=f"""
+                    <html>
+                        <body>
+                            <p>Hi <strong>{user.get_full_name()},</strong></p>
+                            <p>Your Account Has Been Created By Your Institute</p>
+                            <p>Here is your Login ID: <span contenteditable>{user.unique_code}</span> and Password: <span contenteditable>{password}</span></p>
+                        </body>
+                    </html>
+                    """,
+                from_email=settings.EMAIL_HOST_USER,
+                to=[user.email],
+            )
+            email.content_subtype = "html"
+            email.send()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
 class StudentGetUpdateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -209,7 +252,9 @@ class StudentGetUpdateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk=None, *args, **kwargs):
-        student = User.objects.filter(Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)).first()
+        student = User.objects.filter(
+            Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
+        ).first()
         if not student:
             return Response(
                 {"msg": "No Student Found"}, status=status.HTTP_404_NOT_FOUND
@@ -221,3 +266,16 @@ class StudentGetUpdateAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk=None, *args, **kwargs):
+        student = User.objects.filter(
+            Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
+        ).first()
+        if not student:
+            return Response(
+                {"msg": "No Student Found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        student.delete()
+        return Response(
+            {"msg": "User Deleted Successfully"}, status=status.HTTP_204_NO_CONTENT
+        )
