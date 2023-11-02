@@ -11,6 +11,7 @@ urlpatterns = [
     # path("hi", include('rest_framework_swagger.urls')),
     path("api/accounts/", include("accounts.api.urls")),
     path("api/institutes/", include("institutes.api.urls")),
+    path("api/students/", include("students.api.urls"))
 ]
 
 # MEDIA Configuration
