@@ -1,5 +1,6 @@
 from django.db import models
 from accounts.models import User
+from django.conf import settings
 
 # Create your models here.
 
@@ -8,7 +9,9 @@ class InstituteProfile(models.Model):
     user = models.OneToOneField(
         User, models.CASCADE, related_name="institute_profile", primary_key=True
     )
-    profile_image = models.ImageField(upload_to="profile/", null=True, blank=True)
+    profile_picture = models.URLField(
+        default=settings.CLOUDINARY_DEFAULT_INSTITUTE_IMAGE_LINK
+    )
     address = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)

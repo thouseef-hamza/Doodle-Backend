@@ -215,6 +215,7 @@ INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
+# MEDIA Configuration
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
@@ -224,4 +225,10 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
-# MEDIA Configuration
+# Cloudinary Config
+CLOUDINARY_DEFAULT_STUDENT_IMAGE_LINK = os.getenv(
+    "CLOUDINARY_DEFAULT_STUDENT_IMAGE_LINK"
+)
+CLOUDINARY_DEFAULT_INSTITUTE_IMAGE_LINK = os.getenv(
+    "CLOUDINARY_DEFAULT_INSTITUTE_IMAGE_LINK"
+)

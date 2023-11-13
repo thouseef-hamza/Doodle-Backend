@@ -27,7 +27,9 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 
 
-class InstituteProfileAPIView(APIView):
+
+
+class InstituteProfileGetUpdateAPIView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (JWTAuthentication,)
 
@@ -35,66 +37,18 @@ class InstituteProfileAPIView(APIView):
         serializer = InstituteSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-class InstituteProfileUpdateAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
-    authentication_classes = (JWTAuthentication,)
-    parser_classes = (MultiPartParser, FormParser, JSONParser, FileUploadParser)
-
-    def get(self, request, *args, **kwargs):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
     def put(self, request, *args, **kwargs):
         serializer = InstituteSerializer(
-            context={"user": request.user}, data=request.data, partial=True
+            request.user, data=request.data, partial=True
         )
         if serializer.is_valid():
-            """Here I am updating profile_image and profile data seperately but in one api"""
-
-            user = User.objects.filter(id=request.user.id).first()
-            # Here i am updating my profile image only
-            if "profile_image" in request.FILES:
-                instances = InstituteProfile.objects.filter(user=user)
-                for instance in instances:
-                    instance.profile_image = request.FILES["profile_image"]
-                instance.save(update_fields=["profile_image"])
-
-                response_data = {
-                    "msg": "Profile Image Updated Suceessfully",
-                    "user": InstituteSerializer(user).data,
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
-
-            # Here i am updating Profile Data
-
-            # Here  i updated User object
-            institute_name = serializer.validated_data.get("institute_name")
-            first_name, last_name = institute_name.split(" ", 1)
-            user.first_name = first_name if first_name else user.first_name
-            user.last_name = last_name if last_name else user.last_name
-            user.email = serializer.validated_data.get("email", user.email)
-            user.phone_number = serializer.validated_data.get(
-                "phone_number", user.phone_number
-            )
-            user.save(
-                update_fields=["first_name", "last_name", "email", "phone_number"]
-            )
-
-            # Here i updated user Profile Object
-            InstituteProfile.objects.filter(user=user).update(
-                **serializer.validated_data["profile"]
-            )
-            response_data = {
-                "msg": "Profile Updated Suceessfully",
-                "user": InstituteSerializer(user).data,
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, *args, **kwargs):
-        instance = InstituteProfile.objects.filter(user_id=request.user.id).first()
-        if instance is not None:
+        instance = User.objects.filter(id=request.user.id).first()
+        if instance:
             instance.delete()
             return Response(
                 {"msg": "Institute Profile Deleted Successfully"},
@@ -111,10 +65,6 @@ class BatchListCreateAPIView(APIView):
         queryset = Batch.objects.filter(institute__user_id=request.user.id).order_by(
             "id"
         )
-        if not queryset:
-            return Response(
-                {"msg": "No Batches Found"}, status=status.HTTP_404_NOT_FOUND
-            )
         serializer = BatchSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -140,8 +90,6 @@ class BatchGetUpdateAPIView(APIView):
         queryset = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
         ).first()
-        if not queryset:
-            return Response({"msg": "No Batch Found"}, status=status.HTTP_404_NOT_FOUND)
         serializer = BatchSerializer(queryset)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -149,8 +97,6 @@ class BatchGetUpdateAPIView(APIView):
         instance = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
         ).first()
-        if instance is None:
-            return Response({"msg": "No Data"}, status=status.HTTP_404_NOT_FOUND)
         serializer = BatchSerializer(instance, data=request.data)
         if serializer.is_valid():
             instance.name = serializer.validated_data.get("name", instance.name)
@@ -189,6 +135,7 @@ class StudentListCreateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
+        print("hello")
         batch_id = request.data.pop("batch_id", None)
         serializer = UserStudentSerializer(data=request.data)
         if serializer.is_valid():
@@ -214,7 +161,7 @@ class StudentListCreateAPIView(APIView):
             student.batch = batch
             student.save()
             return Response(
-                UserStudentSerializer(user).data, status=status.HTTP_201_CREATED
+                UserStudentSerializer(student.user).data, status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -245,9 +192,7 @@ class StudentGetUpdateAPIView(APIView):
                 student.student_profile.batch = batch
                 student.student_profile.save()
             serializer.save()
-            print(serializer.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk=None, *args, **kwargs):
