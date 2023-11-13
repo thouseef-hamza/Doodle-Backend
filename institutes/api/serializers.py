@@ -79,7 +79,6 @@ class UserStudentProfileSerializer(serializers.ModelSerializer):
 
 class UserStudentSerializer(serializers.ModelSerializer):
     student_profile = UserStudentProfileSerializer(many=False, required=False)
-
     class Meta:
         model = User
         fields = (

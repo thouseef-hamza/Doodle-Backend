@@ -185,15 +185,13 @@ class StudentListCreateAPIView(APIView):
         students = User.objects.filter(student_profile__batch__id__in=batches).order_by(
             "id"
         )
-        if not students:
-            return Response({"msg": "No Students"}, status=status.HTTP_404_NOT_FOUND)
         serializer = UserStudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
+        batch_id = request.data.pop("batch_id", None)
         serializer = UserStudentSerializer(data=request.data)
         if serializer.is_valid():
-            batch_id = request.data.get("batch_id", None)
             if batch_id is None:
                 return Response(
                     {"msg": "Before Creating Students,You want to create Batch First"},
@@ -214,25 +212,10 @@ class StudentListCreateAPIView(APIView):
             user.save(update_fields=["unique_code", "password"])
             student = StudentProfile.objects.filter(user=user).first()
             student.batch = batch
-            student.save(update_fields=["batch"])
-            # Sending Unique Code and Password for User Login
-            email = EmailMessage(
-                subject=f"Login Credentials from {student.batch.institute.user.get_full_name()}",
-                body=f"""
-                    <html>
-                        <body>
-                            <p>Hi <strong>{user.get_full_name()},</strong></p>
-                            <p>Your Account Has Been Created By Your Institute</p>
-                            <p>Here is your Login ID: <span contenteditable>{user.unique_code}</span> and Password: <span contenteditable>{password}</span></p>
-                        </body>
-                    </html>
-                    """,
-                from_email=settings.EMAIL_HOST_USER,
-                to=[user.email],
+            student.save()
+            return Response(
+                UserStudentSerializer(user).data, status=status.HTTP_201_CREATED
             )
-            email.content_subtype = "html"
-            email.send()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -244,27 +227,27 @@ class StudentGetUpdateAPIView(APIView):
         queryset = User.objects.filter(
             Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
         ).first()
-        if not queryset:
-            return Response(
-                {"msg": "Student not found"}, status=status.HTTP_400_BAD_REQUEST
-            )
         serializer = UserStudentSerializer(queryset)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def put(self, request, pk=None, *args, **kwargs):
+    def put(self, request, pk=None,format=None, *args, **kwargs):
         student = User.objects.filter(
             Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
         ).first()
-        if not student:
-            return Response(
-                {"msg": "No Student Found"}, status=status.HTTP_404_NOT_FOUND
-            )
         serializer = UserStudentSerializer(
             instance=student, data=request.data, partial=True
         )
         if serializer.is_valid():
+            batch_id = request.data.get("batch_id", None)
+            student = User.objects.filter(id=pk).first()
+            if batch_id is not None and student is not None:
+                batch = Batch.objects.filter(id=int(batch_id)).first()
+                student.student_profile.batch = batch
+                student.student_profile.save()
             serializer.save()
+            print(serializer.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk=None, *args, **kwargs):

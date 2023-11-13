@@ -19,8 +19,8 @@ class StudentProfile(models.Model):
     batch = models.ForeignKey(Batch, on_delete=models.CASCADE, null=True, blank=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
     date_of_birth = models.DateField(null=True, blank=True)
-    profile_picture = models.ImageField(
-        upload_to="profile/student/", null=True, blank=True
+    profile_picture = models.URLField(
+        default="https://res.cloudinary.com/ddoz9iuvk/image/upload/v1699871295/3d-illustration-person-with-sunglasses_23-2149436188_hukac4.jpg"
     )
     address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
