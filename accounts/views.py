@@ -50,7 +50,6 @@ class TeacherRegisterationAPIView(APIView):
 
 class InstituteRegisterationAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        print("thousi")
         serializer = InstituteRegisterationSerializer(data=request.data)
         if serializer.is_valid():
             verification_sid = message_otp.send_otp_on_phone(
@@ -148,7 +147,6 @@ class OTPVerificationAPIView(APIView):
 
 class UserLoginAPIVew(APIView):
     def post(self, request, *args, **kwargs):
-        print(request.data)
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email", None)
@@ -220,6 +218,11 @@ class UserLoginAPIVew(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ForgetPasswordAPIView(APIView):
+    def patch(self, request, *args, **kwargs):
+        pass
+
+
 class ChangePasswordAPIView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (JWTAuthentication,)
@@ -236,11 +239,5 @@ class ChangePasswordAPIView(APIView):
             request.user.set_password(serializer.validated_data["new_password"])
             request.user.last_login = timezone.now()
             request.user.save(update_fields=["password", "last_login"])
-            return Response(
-                {
-                    "msg": "User Password Changed Successfully",
-                    "user": UserSerializer(request.user).data,
-                },
-                status=status.HTTP_200_OK,
-            )
+            return Response(status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

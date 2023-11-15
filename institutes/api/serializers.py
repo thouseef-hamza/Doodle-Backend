@@ -42,7 +42,7 @@ class InstituteSerializer(serializers.ModelSerializer):
                 {"email": "This email is already in use."}
             )
         return value
-    
+
     def validate_phone_number(self, value):
         # Profile Updation
         if not self.instance is None:

@@ -7,6 +7,7 @@ from django.conf import settings
 # Create your models here.
 
 GENDER_CHOICES = [
+    ("S", "Select"),
     ("M", "Male"),
     ("F", "Female"),
     ("O", "Other"),
@@ -18,7 +19,7 @@ class StudentProfile(models.Model):
         User, on_delete=models.CASCADE, related_name="student_profile"
     )
     batch = models.ForeignKey(Batch, on_delete=models.CASCADE, null=True, blank=True)
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
+    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default="S")
     date_of_birth = models.DateField(null=True, blank=True)
     profile_picture = models.URLField(
         default=settings.CLOUDINARY_DEFAULT_STUDENT_IMAGE_LINK

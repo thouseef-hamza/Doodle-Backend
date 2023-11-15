@@ -11,13 +11,6 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import InstituteProfile
 from accounts.models import User
-from accounts.api.serializers import UserSerializer
-from rest_framework.parsers import (
-    MultiPartParser,
-    FormParser,
-    JSONParser,
-    FileUploadParser,
-)
 from .models import Batch
 from django.shortcuts import get_object_or_404
 from students.models import StudentProfile
@@ -25,8 +18,6 @@ from django.db.models import Q
 from accounts.helpers.password_generator import generate_random_password
 from django.core.mail import EmailMessage
 from django.conf import settings
-
-
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -38,9 +29,7 @@ class InstituteProfileGetUpdateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, *args, **kwargs):
-        serializer = InstituteSerializer(
-            request.user, data=request.data, partial=True
-        )
+        serializer = InstituteSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -135,7 +124,6 @@ class StudentListCreateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        print("hello")
         batch_id = request.data.pop("batch_id", None)
         serializer = UserStudentSerializer(data=request.data)
         if serializer.is_valid():
@@ -177,7 +165,7 @@ class StudentGetUpdateAPIView(APIView):
         serializer = UserStudentSerializer(queryset)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def put(self, request, pk=None,format=None, *args, **kwargs):
+    def put(self, request, pk=None, format=None, *args, **kwargs):
         student = User.objects.filter(
             Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
         ).first()
