@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/accounts/", include("accounts.api.urls")),
     path("api/institutes/", include("institutes.api.urls")),
     path("api/students/", include("students.api.urls")),
+    # path("api/tasks/", include("tasks.api.urls")),
 ]
 
 # MEDIA Configuration

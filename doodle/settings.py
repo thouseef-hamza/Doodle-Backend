@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "institutes.apps.InstitutesConfig",
     "students.apps.StudentsConfig",
     "teachers.apps.TeachersConfig",
+    "tasks.apps.TasksConfig",
     "rest_framework",
     "corsheaders",
     "rest_framework_simplejwt",
