@@ -39,7 +39,7 @@ class Task(models.Model):
 
 class TaskAssignment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    task = models.ForeignKey(Task, on_delete=models.DO_NOTHING, null=True)
+    task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True)
     submitted_url = models.URLField(null=True, blank=True)
     submitted_document = models.FileField(
         upload_to="task_documents/", null=True, blank=True
@@ -49,4 +49,4 @@ class TaskAssignment(models.Model):
     is_submitted = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.task.title.upper()} - {self.task.assigned_by} ({self.task.user_type}) to {self.user}"
+        return f"{self.task.title.upper()} - {self.task.assigned_by} ({self.task.user_type}) to {self.user}" if self.task else str(self.user)

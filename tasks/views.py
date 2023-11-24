@@ -66,12 +66,20 @@ class InstituteTaskUpdateAPIView(APIView):
 
     def get(self, request, pk=None, *args, **kwargs):
         task = Task.objects.filter(id=pk).first()
-        related_query = (
-            "teacher_profile" if task.task_type == "teacher" else "student_profile"
-        )
-        user_details = TaskAssignment.objects.prefetch_related(
-            Prefetch("user", queryset=User.objects.select_related(related_query))
-        ).filter(task_id=task.id)
+
+        if task.task_type == "teacher":
+            user_details = TaskAssignment.objects.prefetch_related(
+                    "user"
+            ).filter(task_id=task.id)
+        else:
+            user_details = TaskAssignment.objects.prefetch_related(
+                Prefetch(
+                    "user",
+                    queryset=User.objects.select_related(
+                        "student_profile__batch"
+                    ).annotate(batch_name=F("student_profile__batch__name")),
+                ),
+            ).filter(task_id=task.id)
         response_data = {
             "task_details": TaskSerializer(task).data,
             "user_details": TaskAssignmentSerializer(user_details, many=True).data,
@@ -79,10 +87,37 @@ class InstituteTaskUpdateAPIView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     def put(self, request, pk=None, *args, **kwargs):
-        queryset = Task.objects.get(id=pk, assigned_by=request.user.id)
-        print(queryset.assigned_to.all(), "thousiiiisiisis")
-        serializer = InstituteTaskCreateSerializer(instance=queryset, data=request.data)
+        instance = Task.objects.filter(id=pk, assigned_by=request.user.id).first()
+        print(instance)
+        serializer = InstituteTaskCreateSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            assigned_to = serializer.validated_data.get("assigned_to")
+            instance.title = serializer.validated_data.get("title", instance.title)
+            instance.description = serializer.validated_data.get(
+                "description", instance.description
+            )
+            instance.task_type = serializer.validated_data.get(
+                "task_type", instance.task_type
+            )
+            instance.task_url = serializer.validated_data.get(
+                "task_url", instance.task_url
+            )
+            instance.document = serializer.validated_data.get(
+                "document", instance.document
+            )
+            instance.due_date = serializer.validated_data.get(
+                "due_date", instance.due_date
+            )
+            Q_filter = Q()
+            if instance.task_type == "individual":
+                Q_filter = Q(id__in=assigned_to)
+            elif instance.task_type == "teacher":
+                instance.assigned_to.clear() 
+                Q_filter = Q(email=assigned_to[0])
+            elif instance.task_type == "batch":
+                Q_filter = Q(student_profile__batch__id__in=assigned_to)
+            users = User.objects.filter(Q_filter).values_list("id", flat=True)
+            instance.assigned_to.add(*users)
+            instance.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

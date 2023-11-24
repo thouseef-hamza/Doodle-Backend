@@ -18,7 +18,7 @@ class StudentProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="student_profile"
     )
-    batch = models.ForeignKey(Batch, on_delete=models.CASCADE, null=True, blank=True)
+    batch = models.ForeignKey(Batch, on_delete=models.CASCADE, null=True, blank=True,related_name="student_batch")
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default="S")
     date_of_birth = models.DateField(null=True, blank=True)
     profile_picture = models.URLField(
