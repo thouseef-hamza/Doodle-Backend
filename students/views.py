@@ -15,8 +15,6 @@ class StudentUpdateAPIView(APIView):
 
     def put(self, request, *args, **kwargs):
         user = User.objects.filter(id=request.user.id).first()
-        # if not user:
-        #      return Response({"msg":"No Data"},status=status.HTTP_400_BAD_REQUEST)
         serializer = StudentSerializer(user, data=request.data)
         if serializer.is_valid():
             serializer.save()
