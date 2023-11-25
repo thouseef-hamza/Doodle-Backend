@@ -13,16 +13,38 @@ from django.db.models import Q, F
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
 
 # Create your views here.
 
 
 class InstituteTaskListCreateAPIView(APIView):
+    @swagger_auto_schema(
+        tags=["Institute  Task"],
+        operation_description="Institute Task List",
+        responses={
+            200: TaskSerializer,
+            404: "Task Not Found",
+            500: "Server Error",
+        },
+    )
     def get(self, request, *args, **kwargs):
         queryset = Task.objects.filter(assigned_by=request.user.id)
+        if not queryset:
+             return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
+   
+    @swagger_auto_schema(
+        tags=["Institute  Task"],
+        operation_description="Institute Task Create",
+        request_body=InstituteTaskCreateSerializer,
+        responses={
+            201: InstituteTaskCreateSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def post(self, request, *args, **kwargs):
         serializer = InstituteTaskCreateSerializer(data=request.data)
         # Here may be a teacher or 2 or more students in a batch or a batch of all students
@@ -61,13 +83,36 @@ class InstituteTaskListCreateAPIView(APIView):
 
 
 class InstituteTaskUpdateAPIView(APIView):
+    @swagger_auto_schema(
+        tags=["Institute Task"],
+        operation_description="Institute Task Fetch",
+        responses={
+            200: TaskSerializer,
+            404: "Task Not Found",
+            500: "Server Error",
+        },
+    )
     def get(self, request, pk=None, *args, **kwargs):
         instance = Task.objects.filter(id=pk).first()
+        if not instance:
+             return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = TaskSerializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute  Task"],
+        operation_description="Institute Task Update",
+        request_body=InstituteTaskCreateSerializer,
+        responses={
+            200: InstituteTaskCreateSerializer,
+            404: "Task Not Found",
+            500: "Server Error",
+        },
+    )
     def put(self, request, pk=None, *args, **kwargs):
         instance = Task.objects.filter(id=pk, assigned_by=request.user.id).first()
+        if not instance:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = InstituteTaskCreateSerializer(data=request.data)
         if serializer.is_valid():
             assigned_to = serializer.validated_data.get("assigned_to")
@@ -88,7 +133,7 @@ class InstituteTaskUpdateAPIView(APIView):
                 "due_date", instance.due_date
             )
             Q_filter = Q()
-            if instance.task_type == "individual": 
+            if instance.task_type == "individual":
                 Q_filter = Q(id__in=assigned_to)
             elif instance.task_type == "teacher":
                 instance.assigned_to.clear()
@@ -100,18 +145,38 @@ class InstituteTaskUpdateAPIView(APIView):
             instance.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self,request,pk=None,*args, **kwargs):
-         instance = Task.objects.filter(id=pk).first()
-         if instance:
-               instance.delete()
-               return Response(status=status.HTTP_205_RESET_CONTENT)
-         return Response(status=status.HTTP_404_NOT_FOUND) 
+
+    @swagger_auto_schema(
+        tags=["Institute Task"],
+        operation_description="Institute Task Delete",
+        responses={
+            200: "Task Deleted Successfully",
+            404: "TaskAssignment Not Found",
+            500: "Server Error",
+        },
+    )
+    def delete(self, request, pk=None, *args, **kwargs):
+        instance = Task.objects.filter(id=pk).first()
+        if instance:
+            instance.delete()
+            return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
 
 class StudentTaskAssignmentUpdateAPIView(APIView):
+    @swagger_auto_schema(
+        tags=["Institute TaskAssignment"],
+        operation_description="Institute Student TaskAssignment Fetch",
+        responses={
+            200: TaskAssignmentSerializer,
+            404: "TaskAssignment Not Found",
+            500: "Server Error",
+        },
+    )
     def get(self, request, task_id=None, pk=None, user_id=None, *args, **kwargs):
         task = Task.objects.filter(id=task_id).first()
-        
+        if not task:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         if task.task_type == "teacher":
             user_details = TaskAssignment.objects.prefetch_related("user").filter(
                 task_id=task_id
@@ -126,12 +191,25 @@ class StudentTaskAssignmentUpdateAPIView(APIView):
                 ),
             ).filter(task_id=task.id)
         serializer = TaskAssignmentSerializer(user_details, many=True)
-        return Response(serializer.data,status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute TaskAssignment"],
+        operation_description="Institute Student TaskAssignment Update",
+        request_body=TaskAssignmentSerializer,
+        responses={
+            200: TaskAssignmentSerializer,
+            400: "Bad Request",
+            404: "TaskAssignment Not Found",
+            500: "Server Error",
+        },
+    )
     def put(self, request, task_id=None, pk=None, user_id=None, *args, **kwargs):
         instance = TaskAssignment.objects.filter(
             id=pk, task=task_id, user=user_id
         ).first()
+        if not instance:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = TaskAssignmentSerializer(instance)
         if serializer.is_valid():
             instance.is_completed = serializer.validated_data.get(
@@ -140,7 +218,5 @@ class StudentTaskAssignmentUpdateAPIView(APIView):
             instance.is_submitted = serializer.validated_data.get(
                 "is_completed", instance.is_submitted
             )
-        return Response(serializer.data,status=status.HTTP_205_RESET_CONTENT)
-   
-
- 
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

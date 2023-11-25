@@ -24,6 +24,17 @@ from django.utils import timezone
 
 # Create your views here.
 class TeacherRegisterationAPIView(APIView):
+    @swagger_auto_schema(
+        tags=["Authentication"],
+        operation_description="Teacher Registeration",
+        operation_summary="This endpoint is used for teacher registeration",
+        request_body=TeacherRegisterationSerializer,
+        responses={
+            200: TeacherRegisterationSerializer,
+            400: "Bad Request",
+            500: "errors",
+        },
+    )
     def post(self, request, *args, **kwargs):
         serializer = TeacherRegisterationSerializer(data=request.data)
         if serializer.is_valid():
@@ -52,6 +63,7 @@ class InstituteRegisterationAPIView(APIView):
     @swagger_auto_schema(
         tags=["Authentication"],
         operation_description="Institute Registeration",
+        operation_summary="This endpoint is used for institute registeration",
         request_body=InstituteRegisterationSerializer,
         responses={
             200: InstituteRegisterationSerializer,
@@ -109,7 +121,7 @@ class OTPVerificationAPIView(APIView):
             400: "Bad Request",
             503: "Service Unavailable",
         },
-        tags=["OTP Verification"],
+        tags=["Authentication"],
         operation_summary="Verify OTP for User",
         operation_description="This endpoint is used for OTP verification.",
     )
@@ -130,6 +142,7 @@ class OTPVerificationAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @swagger_auto_schema(
         request_body=OTPVerificationSerializer,
         responses={
@@ -138,7 +151,7 @@ class OTPVerificationAPIView(APIView):
             400: "Bad Request",
             503: "Service Unavailable",
         },
-        tags=["OTP Verification"],
+        tags=["Authentication"],
         operation_summary="Regenerate OTP for User",
         operation_description="This endpoint is used for regenerating OTP.",
     )
@@ -178,6 +191,16 @@ class OTPVerificationAPIView(APIView):
 
 
 class UserLoginAPIVew(APIView):
+    @swagger_auto_schema(
+        request_body=UserLoginSerializer,
+        responses={
+            200: UserLoginSerializer,
+            400: "Bad Request",
+        },
+        tags=["Authentication"],
+        operation_summary="Login User",
+        operation_description="This endpoint is used for Institute and Student Login.",
+    )
     def post(self, request, *args, **kwargs):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():

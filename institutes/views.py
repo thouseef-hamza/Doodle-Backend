@@ -18,16 +18,36 @@ from django.db.models import Q
 from accounts.helpers.password_generator import generate_random_password
 from django.core.mail import EmailMessage
 from django.conf import settings
+from drf_yasg.utils import swagger_auto_schema
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (JWTAuthentication,)
 
+    @swagger_auto_schema(
+        tags=["Institute Profile"],
+        operation_description="Institute Profile",
+        responses={
+            200: InstituteSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def get(self, request, *args, **kwargs):
         serializer = InstituteSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute Profile"],
+        operation_description="Institute Profile Updation",
+        request_body=InstituteSerializer,
+        responses={
+            200: InstituteSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def put(self, request, *args, **kwargs):
         serializer = InstituteSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
@@ -35,6 +55,15 @@ class InstituteProfileGetUpdateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        tags=["Institute Profile"],
+        operation_description="Institute Profile",
+        responses={
+            200: InstituteSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def delete(self, request, *args, **kwargs):
         instance = User.objects.filter(id=request.user.id).first()
         if instance:
@@ -50,6 +79,15 @@ class BatchListCreateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        tags=["Institute Batch"],
+        operation_description="Institute Batch Fetch",
+        responses={
+            200: BatchSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def get(self, request, *args, **kwargs):
         queryset = Batch.objects.filter(institute__user_id=request.user.id).order_by(
             "id"
@@ -57,6 +95,16 @@ class BatchListCreateAPIView(APIView):
         serializer = BatchSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute Batch"],
+        operation_description="Institute Batch Creation",
+        request_body=BatchSerializer,
+        responses={
+            200: BatchSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def post(self, request, *args, **kwargs):
         institute = get_object_or_404(InstituteProfile, user=request.user)
         serializer = BatchSerializer(data=request.data)
@@ -75,6 +123,15 @@ class BatchGetUpdateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        tags=["Institute Batch"],
+        operation_description="Institute Batch Detail Fetch",
+        responses={
+            200: BatchSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def get(self, request, pk=None, *args, **kwargs):
         queryset = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
@@ -82,6 +139,16 @@ class BatchGetUpdateAPIView(APIView):
         serializer = BatchSerializer(queryset)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute Batch"],
+        operation_description="Institute Batch Detail Update",
+        request_body=BatchSerializer,
+        responses={
+            200: BatchSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def put(self, request, pk=None, *args, **kwargs):
         instance = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
@@ -96,6 +163,15 @@ class BatchGetUpdateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        tags=["Institute Batch"],
+        operation_description="Institute Batch Detail Update",
+        responses={
+            204: "No Content",
+            404: "Not Found",
+            500: "Server Error",
+        },
+    )
     def delete(self, request, pk=None, *args, **kwargs):
         batch = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
@@ -112,6 +188,15 @@ class StudentListCreateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        tags=["Institute Student"],
+        operation_description="Institute Student Fetch",
+        responses={
+            200: UserStudentSerializer,
+            404: "Not Found",
+            500: "Server Error",
+        },
+    )
     def get(self, request, *args, **kwargs):
         # Based on every each institute filtering their batches
         batches = Batch.objects.filter(institute__user_id=request.user.id)
@@ -123,6 +208,15 @@ class StudentListCreateAPIView(APIView):
         serializer = UserStudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute Student"],
+        operation_description="Institute Student Create",
+        responses={
+            201: UserStudentSerializer,
+            400: "Not Found",
+            500: "Server Error",
+        },
+    )
     def post(self, request, *args, **kwargs):
         batch_id = request.data.pop("batch_id", None)
         serializer = UserStudentSerializer(data=request.data)
@@ -158,6 +252,15 @@ class StudentGetUpdateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        tags=["Institute Student"],
+        operation_description="Institute Student Fetch",
+        responses={
+            200: UserStudentSerializer,
+            400: "Not Found",
+            500: "Server Error",
+        },
+    )
     def get(self, request, pk=None, *args, **kwargs):
         queryset = User.objects.filter(
             Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
@@ -165,6 +268,16 @@ class StudentGetUpdateAPIView(APIView):
         serializer = UserStudentSerializer(queryset)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute Student"],
+        operation_description="Institute Student Update",
+        request_body=UserStudentSerializer,
+        responses={
+            200: UserStudentSerializer,
+            400: "Bad Request",
+            500: "Server Error",
+        },
+    )
     def put(self, request, pk=None, format=None, *args, **kwargs):
         student = User.objects.filter(
             Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
@@ -183,6 +296,16 @@ class StudentGetUpdateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        tags=["Institute Student"],
+        operation_description="Institute Student Delete",
+        request_body=UserStudentSerializer,
+        responses={
+            204 : "Student Deleted",
+            404: "Student Not Found",
+            500: "Server Error",
+        },
+    )
     def delete(self, request, pk=None, *args, **kwargs):
         student = User.objects.filter(
             Q(id=pk) & Q(student_profile__batch__institute__user_id=request.user.id)
