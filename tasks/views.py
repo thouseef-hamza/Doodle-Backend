@@ -20,8 +20,9 @@ from drf_yasg.utils import swagger_auto_schema
 
 class InstituteTaskListCreateAPIView(APIView):
     @swagger_auto_schema(
-        tags=["Institute  Task"],
+        tags=["Institute Task"],
         operation_description="Institute Task List",
+        operation_summary="Listing Tasks",
         responses={
             200: TaskSerializer,
             404: "Task Not Found",
@@ -31,13 +32,14 @@ class InstituteTaskListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         queryset = Task.objects.filter(assigned_by=request.user.id)
         if not queryset:
-             return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({"msg": "Task Not Found"}, status=status.HTTP_404_NOT_FOUND)
         serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-   
+
     @swagger_auto_schema(
-        tags=["Institute  Task"],
+        tags=["Institute Task"],
         operation_description="Institute Task Create",
+        operation_summary="Creating New Task",
         request_body=InstituteTaskCreateSerializer,
         responses={
             201: InstituteTaskCreateSerializer,
@@ -83,9 +85,13 @@ class InstituteTaskListCreateAPIView(APIView):
 
 
 class InstituteTaskUpdateAPIView(APIView):
+    def get_queryset(self, pk, user):
+        return Task.objects.filter(id=pk, assigned_by=user).first()
+
     @swagger_auto_schema(
         tags=["Institute Task"],
         operation_description="Institute Task Fetch",
+        operation_summary="Fetching Specified Task",
         responses={
             200: TaskSerializer,
             404: "Task Not Found",
@@ -93,15 +99,17 @@ class InstituteTaskUpdateAPIView(APIView):
         },
     )
     def get(self, request, pk=None, *args, **kwargs):
-        instance = Task.objects.filter(id=pk).first()
+        instance = (
+            Task.objects.filter(id=pk, assigned_by=request.user.id).values().first()
+        )
         if not instance:
-             return Response(status=status.HTTP_404_NOT_FOUND)
-        serializer = TaskSerializer(instance)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(instance, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
-        tags=["Institute  Task"],
+        tags=["Institute Task"],
         operation_description="Institute Task Update",
+        operation_summary="Updating Specified Task",
         request_body=InstituteTaskCreateSerializer,
         responses={
             200: InstituteTaskCreateSerializer,
@@ -110,7 +118,8 @@ class InstituteTaskUpdateAPIView(APIView):
         },
     )
     def put(self, request, pk=None, *args, **kwargs):
-        instance = Task.objects.filter(id=pk, assigned_by=request.user.id).first()
+        instance = self.get_queryset(pk, request.user.id)
+        print(instance)
         if not instance:
             return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = InstituteTaskCreateSerializer(data=request.data)
@@ -137,7 +146,9 @@ class InstituteTaskUpdateAPIView(APIView):
                 Q_filter = Q(id__in=assigned_to)
             elif instance.task_type == "teacher":
                 instance.assigned_to.clear()
-                Q_filter = Q(email=assigned_to[0])
+                Q_filter = Q(
+                    email=assigned_to[0]
+                )  # I am assigning a task only for 1 teacher
             elif instance.task_type == "batch":
                 Q_filter = Q(student_profile__batch__id__in=assigned_to)
             users = User.objects.filter(Q_filter).values_list("id", flat=True)
@@ -149,6 +160,7 @@ class InstituteTaskUpdateAPIView(APIView):
     @swagger_auto_schema(
         tags=["Institute Task"],
         operation_description="Institute Task Delete",
+        operation_summary="Deleting Specified Task",
         responses={
             200: "Task Deleted Successfully",
             404: "TaskAssignment Not Found",
@@ -156,41 +168,66 @@ class InstituteTaskUpdateAPIView(APIView):
         },
     )
     def delete(self, request, pk=None, *args, **kwargs):
-        instance = Task.objects.filter(id=pk).first()
+        instance = self.get_queryset(pk, request.user.id)
         if instance:
             instance.delete()
-            return Response(status=status.HTTP_200_OK)
-        return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"msg": "Task Deleted Successfully"}, status=status.HTTP_200_OK
+            )
+        return Response({"msg": "Task Not Found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class StudentTaskAssignmentUpdateAPIView(APIView):
+class StudentTaskAssignmentGetUpdateAPIView(APIView):
+    def get_task_queryset(self, pk, user):
+        return Task.objects.filter(id=pk, assigned_by=user).first()
+
+    def get_student_queryset(self, task_id):
+        # Fetch Details from 4 models
+        student = TaskAssignment.objects.prefetch_related(
+            Prefetch(
+                "user",
+                queryset=User.objects.select_related("student_profile__batch").annotate(
+                    batch_name=F("student_profile__batch__name")
+                ),
+            ),
+        ).filter(task_id=task_id)
+        return student
+
     @swagger_auto_schema(
         tags=["Institute TaskAssignment"],
-        operation_description="Institute Student TaskAssignment Fetch",
+        operation_description="Institute  TaskAssignment Fetch",
         responses={
             200: TaskAssignmentSerializer,
             404: "TaskAssignment Not Found",
             500: "Server Error",
         },
     )
-    def get(self, request, task_id=None, pk=None, user_id=None, *args, **kwargs):
-        task = Task.objects.filter(id=task_id).first()
+    def get(self, request, task_id=None, pk=None, *args, **kwargs):
+        task = self.get_task_queryset(pk=task_id, user=request.user.id)
+        completed = request.GET.get("completed", None)
+        submitted = request.GET.get("submitted", None)
         if not task:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"msg": "Tasks not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        if completed or submitted:
+            print("ok")
+            if completed:
+                 Q_filter = Q(is_completed=completed.title())
+            if submitted:
+                 Q_filter = Q(is_submitted=submitted.title())
+            print(Q_filter)     
+            queryset = self.get_student_queryset(task.id).filter(Q_filter)
+            serializer = TaskAssignmentSerializer(queryset,many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         if task.task_type == "teacher":
             user_details = TaskAssignment.objects.prefetch_related("user").filter(
-                task_id=task_id
+                task_id=task.id
             )
         else:
-            user_details = TaskAssignment.objects.prefetch_related(
-                Prefetch(
-                    "user",
-                    queryset=User.objects.select_related(
-                        "student_profile__batch"
-                    ).annotate(batch_name=F("student_profile__batch__name")),
-                ),
-            ).filter(task_id=task.id)
-        serializer = TaskAssignmentSerializer(user_details, many=True)
+            user_details = self.get_student_queryset(task_id)
+            serializer = TaskAssignmentSerializer(user_details, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
@@ -204,19 +241,50 @@ class StudentTaskAssignmentUpdateAPIView(APIView):
             500: "Server Error",
         },
     )
-    def put(self, request, task_id=None, pk=None, user_id=None, *args, **kwargs):
+    def put(self, request, pk=None, *args, **kwargs):
         instance = TaskAssignment.objects.filter(
-            id=pk, task=task_id, user=user_id
+            id=pk, task__assigned_by=request.user.id
         ).first()
+        print(instance)
         if not instance:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        serializer = TaskAssignmentSerializer(instance)
+        serializer = TaskAssignmentSerializer(data=request.data)
         if serializer.is_valid():
             instance.is_completed = serializer.validated_data.get(
                 "is_completed", instance.is_completed
             )
             instance.is_submitted = serializer.validated_data.get(
-                "is_completed", instance.is_submitted
+                "is_submitted", instance.is_submitted
             )
+            instance.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        tags=["Institute TaskAssignment"],
+        operation_description="Institute Student TaskAssignment Delete",
+        responses={
+            200: "Users Removed Successfully",
+            205: "All Users Cleared",
+            500: "Server Error",
+        },
+    )
+    def delete(self, request, task_id=None, pk=None):
+        clear = request.GET.get("clear", None)
+        remove = request.GET.getlist("remove", None)
+        print(remove)
+        task = self.get_task_queryset(pk=task_id, user=request.user.id)
+        if not task:
+             return Response({"msg":"Task Not Found"},status=status.HTTP_404_NOT_FOUND)
+        
+        # For clearing all the users from junction table
+        if clear:
+            task.assigned_to.clear()
+            task.save()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        # For Removing Specific users from junction table
+        if remove:
+            users = User.objects.filter(id__in=remove)
+            task.assigned_to.remove(*users)
+            task.save()
+            return Response(status=status.HTTP_200_OK)
