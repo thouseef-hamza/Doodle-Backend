@@ -53,3 +53,4 @@ class TaskAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskAssignment
         exclude = ("task",)
+        read_only_fields=("id","task_id","user_id")

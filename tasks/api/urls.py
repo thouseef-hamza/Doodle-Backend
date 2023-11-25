@@ -12,4 +12,9 @@ urlpatterns = [
         views.InstituteTaskUpdateAPIView.as_view(),
         name="ins-task-get-update",
     ),
+    path(
+        "institute/<int:task_id>/assignment/<int:pk>/user/<int:user_id>/",
+        views.StudentTaskAssignmentUpdateAPIView.as_view(),
+        name="ins-task-student-assignment-update",
+    ),
 ]

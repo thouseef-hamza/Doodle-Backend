@@ -18,7 +18,7 @@ from .jwt.tokens import MyTokenObtainPairSerializer
 from django.urls import reverse_lazy
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-import random
+from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 
 
@@ -49,6 +49,16 @@ class TeacherRegisterationAPIView(APIView):
 
 
 class InstituteRegisterationAPIView(APIView):
+    @swagger_auto_schema(
+        tags=["Authentication"],
+        operation_description="Institute Registeration",
+        request_body=InstituteRegisterationSerializer,
+        responses={
+            200: InstituteRegisterationSerializer,
+            400: "bad request",
+            500: "errors",
+        },
+    )
     def post(self, request, *args, **kwargs):
         serializer = InstituteRegisterationSerializer(data=request.data)
         if serializer.is_valid():
@@ -92,6 +102,17 @@ class InstituteRegisterationAPIView(APIView):
 
 
 class OTPVerificationAPIView(APIView):
+    @swagger_auto_schema(
+        request_body=OTPVerificationSerializer,
+        responses={
+            200: UserSerializer,
+            400: "Bad Request",
+            503: "Service Unavailable",
+        },
+        tags=["OTP Verification"],
+        operation_summary="Verify OTP for User",
+        operation_description="This endpoint is used for OTP verification.",
+    )
     # For OTP Verification
     def post(self, request, pk=None, *args, **kwargs):
         user = User.objects.filter(id=pk).first()
@@ -109,7 +130,18 @@ class OTPVerificationAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    @swagger_auto_schema(
+        request_body=OTPVerificationSerializer,
+        responses={
+            200: UserSerializer,
+            204: "No Content",
+            400: "Bad Request",
+            503: "Service Unavailable",
+        },
+        tags=["OTP Verification"],
+        operation_summary="Regenerate OTP for User",
+        operation_description="This endpoint is used for regenerating OTP.",
+    )
     # For OTP Regenerating
     def patch(self, request, pk=None, *args, **kwargs):
         serializer = OTPVerificationSerializer(data=request.data)

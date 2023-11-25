@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "drf_yasg",
     "accounts.apps.AccountsConfig",
     "institutes.apps.InstitutesConfig",
     "students.apps.StudentsConfig",
@@ -51,8 +52,6 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework_simplejwt",
     "debug_toolbar",
-    # "rest_framework_simplejwt.token_blacklist",
-    "rest_framework_swagger",
 ]
 
 MIDDLEWARE = [
@@ -236,3 +235,16 @@ CLOUDINARY_DEFAULT_INSTITUTE_IMAGE_LINK = os.getenv(
 
 # for models
 DATE_INPUT_FORMATS = ["%d-%m-%Y"]
+
+# Swagger Settings
+SWAGGER_SETTINGS = {
+    "TITLE": "Doodle",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "in": "header",
+            "name": "Authorization",
+            "type": "apiKey",
+        },
+    },
+}

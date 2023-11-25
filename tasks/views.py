@@ -61,34 +61,13 @@ class InstituteTaskListCreateAPIView(APIView):
 
 
 class InstituteTaskUpdateAPIView(APIView):
-    def get_task_object(self, id, *args):
-        pass
-
     def get(self, request, pk=None, *args, **kwargs):
-        task = Task.objects.filter(id=pk).first()
-
-        if task.task_type == "teacher":
-            user_details = TaskAssignment.objects.prefetch_related(
-                    "user"
-            ).filter(task_id=task.id)
-        else:
-            user_details = TaskAssignment.objects.prefetch_related(
-                Prefetch(
-                    "user",
-                    queryset=User.objects.select_related(
-                        "student_profile__batch"
-                    ).annotate(batch_name=F("student_profile__batch__name")),
-                ),
-            ).filter(task_id=task.id)
-        response_data = {
-            "task_details": TaskSerializer(task).data,
-            "user_details": TaskAssignmentSerializer(user_details, many=True).data,
-        }
-        return Response(response_data, status=status.HTTP_200_OK)
+        instance = Task.objects.filter(id=pk).first()
+        serializer = TaskSerializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk=None, *args, **kwargs):
         instance = Task.objects.filter(id=pk, assigned_by=request.user.id).first()
-        print(instance)
         serializer = InstituteTaskCreateSerializer(data=request.data)
         if serializer.is_valid():
             assigned_to = serializer.validated_data.get("assigned_to")
@@ -109,10 +88,10 @@ class InstituteTaskUpdateAPIView(APIView):
                 "due_date", instance.due_date
             )
             Q_filter = Q()
-            if instance.task_type == "individual":
+            if instance.task_type == "individual": 
                 Q_filter = Q(id__in=assigned_to)
             elif instance.task_type == "teacher":
-                instance.assigned_to.clear() 
+                instance.assigned_to.clear()
                 Q_filter = Q(email=assigned_to[0])
             elif instance.task_type == "batch":
                 Q_filter = Q(student_profile__batch__id__in=assigned_to)
@@ -121,3 +100,47 @@ class InstituteTaskUpdateAPIView(APIView):
             instance.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self,request,pk=None,*args, **kwargs):
+         instance = Task.objects.filter(id=pk).first()
+         if instance:
+               instance.delete()
+               return Response(status=status.HTTP_205_RESET_CONTENT)
+         return Response(status=status.HTTP_404_NOT_FOUND) 
+
+class StudentTaskAssignmentUpdateAPIView(APIView):
+    def get(self, request, task_id=None, pk=None, user_id=None, *args, **kwargs):
+        task = Task.objects.filter(id=task_id).first()
+        
+        if task.task_type == "teacher":
+            user_details = TaskAssignment.objects.prefetch_related("user").filter(
+                task_id=task_id
+            )
+        else:
+            user_details = TaskAssignment.objects.prefetch_related(
+                Prefetch(
+                    "user",
+                    queryset=User.objects.select_related(
+                        "student_profile__batch"
+                    ).annotate(batch_name=F("student_profile__batch__name")),
+                ),
+            ).filter(task_id=task.id)
+        serializer = TaskAssignmentSerializer(user_details, many=True)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
+    def put(self, request, task_id=None, pk=None, user_id=None, *args, **kwargs):
+        instance = TaskAssignment.objects.filter(
+            id=pk, task=task_id, user=user_id
+        ).first()
+        serializer = TaskAssignmentSerializer(instance)
+        if serializer.is_valid():
+            instance.is_completed = serializer.validated_data.get(
+                "is_completed", instance.is_completed
+            )
+            instance.is_submitted = serializer.validated_data.get(
+                "is_completed", instance.is_submitted
+            )
+        return Response(serializer.data,status=status.HTTP_205_RESET_CONTENT)
+   
+
+ 
