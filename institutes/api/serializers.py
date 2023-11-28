@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from ..models import InstituteProfile
 from accounts.models import User
-from ..models import Batch, Topic
+from ..models import Batch, Topic, Job, Application
 from students.models import StudentProfile
 
 
@@ -154,3 +154,21 @@ class UserStudentSerializer(serializers.ModelSerializer):
             instance=instance.student_profile, validated_data=profile_data
         )
         return super().update(instance, validated_data)
+
+
+class JobCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Job
+        fields = ("title","requirements","description","category","job_type","company","salary")
+        
+    def validate_title(self,value):
+        return value.title() 
+    
+    def validate_job_type(self,value):
+        return value.lower()
+    
+    def category(self,value):
+        return value.lower()
+    
+    
+    

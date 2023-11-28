@@ -4,12 +4,13 @@ from .api.serializers import (
     InstituteSerializer,
     BatchSerializer,
     UserStudentSerializer,
+    JobCreateUpdateSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import InstituteProfile
+from .models import InstituteProfile, Job
 from accounts.models import User
 from .models import Batch
 from django.shortcuts import get_object_or_404
@@ -301,7 +302,7 @@ class StudentGetUpdateAPIView(APIView):
         operation_description="Institute Student Delete",
         request_body=UserStudentSerializer,
         responses={
-            204 : "Student Deleted",
+            204: "Student Deleted",
             404: "Student Not Found",
             500: "Server Error",
         },
@@ -318,3 +319,61 @@ class StudentGetUpdateAPIView(APIView):
         return Response(
             {"msg": "User Deleted Successfully"}, status=status.HTTP_204_NO_CONTENT
         )
+
+
+class JobListCreateAPIView(APIView):
+    def get_queryset(self, user):
+        return Job.objects.filter(company=user.id).values()
+
+    def get(self, request, *args, **kwargs):
+        instance = self.get_queryset(user=request.user)
+        if instance:
+            return Response(instance, status=status.HTTP_200_OK)
+        return Response({},status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        serializer = JobCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            Job.objects.create(
+                title=serializer.validated_data.get("title",None),
+                description=serializer.validated_data.get("description",None),
+                category = serializer.validated_data.get("category",None),
+                job_type=serializer.validated_data.get("job_type",None),
+                company=serializer.validated_data.get("company",None),
+                salary=serializer.validated_data.get("salary",None)
+            )
+            return Response({"msg":"Job Created Successfully"},status=status.HTTP_201_CREATED)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+class JobRetriveUpdateAPIView(APIView):
+    def get_queryset(self,pk,user):
+        return Job.objects.filter(id=pk,company=user.id)
+    
+    def get(self,request,pk=None,*args, **kwargs):
+        instance = self.get_queryset(pk=pk,user=request.user).values().first()
+        return Response(instance,status=status.HTTP_200_OK)
+        
+    def put(self,request,pk=None,*args, **kwargs):
+        instance=self.get_queryset(pk=pk,user=request.user).first()
+        serializer=JobCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            instance.title = serializer.validated_data.get("title",instance.title)
+            instance.description = serializer.validated_data.get("description",instance.description)
+            instance.category = serializer.validated_data.get("category",instance.category)
+            instance.job_type = serializer.validated_data.get("job_type",instance.job_type)
+            instance.salary = serializer.validated_data.get("salary",instance.salary)
+            return Response({"msg":"Job Updated Successfully"},status=status.HTTP_200_OK)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self,request,pk=None ,*args, **kwargs):
+        instance=self.get_queryset(pk=pk,user=request.user).first()
+        if instance:
+            instance.delete()
+            return Response({"msg":"Job Deleted Successfully"},status=status.HTTP_200_OK)
+        return Response({"msg":"Job Not Found"},status=status.HTTP_404_NOT_FOUND)
+        
+        
+    
+    
+        
+    
