@@ -18,8 +18,10 @@ from students.models import StudentProfile
 from django.db.models import Q
 from accounts.helpers.password_generator import generate_random_password
 from django.core.mail import EmailMessage
-from django.conf import settings
 from drf_yasg.utils import swagger_auto_schema
+from accounts.models import User
+from django.db.models import F, Count
+from datetime import date
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -90,9 +92,14 @@ class BatchListCreateAPIView(APIView):
         },
     )
     def get(self, request, *args, **kwargs):
-        queryset = Batch.objects.filter(institute__user_id=request.user.id).order_by(
-            "id"
-        )
+        # In this request user is institute
+        # Based on institute i am filter their batches only
+        # or else other institute can see other institute batches
+        search = request.GET.get("search", None)
+        Q_filter = Q(institute__user_id=request.user.id)
+        if search:
+            Q_filter &= Q(name__icontains=search)
+        queryset = Batch.objects.filter(Q_filter).order_by("id")
         serializer = BatchSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -201,9 +208,19 @@ class StudentListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         # Based on every each institute filtering their batches
         batches = Batch.objects.filter(institute__user_id=request.user.id)
-
+        search = request.GET.get("search", None)
+        print(search)
+        Q_filter = Q(student_profile__batch__id__in=batches)
+        if search:
+            Q_filter &= (
+                Q(first_name__iexact=search)
+                | Q(last_name__iexact=search)
+                | Q(unique_code__iexact=search)
+                | Q(email__iexact=search)
+            )
+        print(Q_filter)
         # According to filtered batches listing all the students
-        students = User.objects.filter(student_profile__batch__id__in=batches).order_by(
+        students = User.objects.filter(Q_filter).order_by(
             "id"
         )
         serializer = UserStudentSerializer(students, many=True)
@@ -325,55 +342,141 @@ class JobListCreateAPIView(APIView):
     def get_queryset(self, user):
         return Job.objects.filter(company=user.id).values()
 
+    @swagger_auto_schema(
+        tags=["Institute Job"],
+        operation_description="Institute Job List",
+        responses={
+            200: "Job List",
+            500: "Server Error",
+        },
+    )
     def get(self, request, *args, **kwargs):
         instance = self.get_queryset(user=request.user)
         if instance:
             return Response(instance, status=status.HTTP_200_OK)
-        return Response({},status=status.HTTP_200_OK)
+        return Response({}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        tags=["Institute Job"],
+        operation_description="Institute Job Create",
+        request_body=JobCreateUpdateSerializer,
+        responses={
+            201: JobCreateUpdateSerializer,
+            400: JobCreateUpdateSerializer,
+            500: "Server Error",
+        },
+    )
     def post(self, request, *args, **kwargs):
         serializer = JobCreateUpdateSerializer(data=request.data)
         if serializer.is_valid():
             Job.objects.create(
-                title=serializer.validated_data.get("title",None),
-                description=serializer.validated_data.get("description",None),
-                category = serializer.validated_data.get("category",None),
-                job_type=serializer.validated_data.get("job_type",None),
-                company=serializer.validated_data.get("company",None),
-                salary=serializer.validated_data.get("salary",None)
+                title=serializer.validated_data.get("title", None),
+                description=serializer.validated_data.get("description", None),
+                category=serializer.validated_data.get("category", None),
+                job_type=serializer.validated_data.get("job_type", None),
+                company=serializer.validated_data.get("company", None),
+                salary=serializer.validated_data.get("salary", None),
             )
-            return Response({"msg":"Job Created Successfully"},status=status.HTTP_201_CREATED)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-    
+            return Response(
+                {"msg": "Job Created Successfully"}, status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class JobRetriveUpdateAPIView(APIView):
-    def get_queryset(self,pk,user):
-        return Job.objects.filter(id=pk,company=user.id)
-    
-    def get(self,request,pk=None,*args, **kwargs):
-        instance = self.get_queryset(pk=pk,user=request.user).values().first()
-        return Response(instance,status=status.HTTP_200_OK)
-        
-    def put(self,request,pk=None,*args, **kwargs):
-        instance=self.get_queryset(pk=pk,user=request.user).first()
-        serializer=JobCreateUpdateSerializer(data=request.data)
-        if serializer.is_valid():
-            instance.title = serializer.validated_data.get("title",instance.title)
-            instance.description = serializer.validated_data.get("description",instance.description)
-            instance.category = serializer.validated_data.get("category",instance.category)
-            instance.job_type = serializer.validated_data.get("job_type",instance.job_type)
-            instance.salary = serializer.validated_data.get("salary",instance.salary)
-            return Response({"msg":"Job Updated Successfully"},status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self,request,pk=None ,*args, **kwargs):
-        instance=self.get_queryset(pk=pk,user=request.user).first()
+    def get_queryset(self, pk, user):
+        return Job.objects.filter(id=pk, company=user.id)
+
+    @swagger_auto_schema(
+        tags=["Institute Job"],
+        operation_description="Institute Job Retrieve",
+        responses={
+            200: "Job Rerieve",
+            404: "Job Not Found",
+            500: "Server Error",
+        },
+    )
+    def get(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(pk=pk, user=request.user).values().first()
+        if instance:
+            return Response(instance, status=status.HTTP_200_OK)
+        return Response({"msg": "Job Not Found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(
+        tags=["Institute Job"],
+        operation_description="Institute Job Update",
+        request_body=JobCreateUpdateSerializer,
+        responses={
+            200: JobCreateUpdateSerializer,
+            404: "Job Not Found",
+            500: "Server Error",
+        },
+    )
+    def put(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(pk=pk, user=request.user).first()
+        if instance:
+            serializer = JobCreateUpdateSerializer(data=request.data)
+            if serializer.is_valid():
+                instance.title = serializer.validated_data.get("title", instance.title)
+                instance.description = serializer.validated_data.get(
+                    "description", instance.description
+                )
+                instance.category = serializer.validated_data.get(
+                    "category", instance.category
+                )
+                instance.job_type = serializer.validated_data.get(
+                    "job_type", instance.job_type
+                )
+                instance.salary = serializer.validated_data.get(
+                    "salary", instance.salary
+                )
+                instance.save(
+                    update_fields=[
+                        "title",
+                        "description",
+                        "category",
+                        "job_type",
+                        "salary",
+                    ]
+                )
+                return Response(
+                    {"msg": "Job Updated Successfully"}, status=status.HTTP_200_OK
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "Job Not Found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(
+        tags=["Institute Job"],
+        operation_description="Institute Job Delete",
+        request_body=JobCreateUpdateSerializer,
+        responses={
+            200: "Job Deleted Successfully",
+            404: "Job Not Found",
+            500: "Server Error",
+        },
+    )
+    def delete(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(pk=pk, user=request.user).first()
         if instance:
             instance.delete()
-            return Response({"msg":"Job Deleted Successfully"},status=status.HTTP_200_OK)
-        return Response({"msg":"Job Not Found"},status=status.HTTP_404_NOT_FOUND)
-        
-        
-    
-    
-        
-    
+            return Response(
+                {"msg": "Job Deleted Successfully"}, status=status.HTTP_200_OK
+            )
+        return Response({"msg": "Job Not Found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class InstituteDashboardAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        instance = Batch.objects.filter(institute=request.user.id).aggregate(
+            batch_count=Count("id"), student_count=Count("student_batch")
+        )
+
+        print(instance)
+        return Response(instance, status=status.HTTP_200_OK)
+
+
+class TeacherListAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        instance = User.objects.filter(is_teacher=True).select_related(
+            "teacher_profile"
+        )

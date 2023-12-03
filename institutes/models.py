@@ -84,6 +84,12 @@ class Job(AbstractDate):
 
 
 class Application(models.Model):
+    class ApplicationStatus(models.TextChoices):
+        PENDING = "pending","Pending"
+        REVIEW = "review","Review"
+        REJECTED = "rejected","Rejected"
+        ACCEPTED = "accepted","Accepted"
+        
     job = models.ForeignKey(
         Job, on_delete=models.CASCADE, related_name="job_application"
     )
@@ -92,6 +98,7 @@ class Application(models.Model):
     )
     application_date=models.DateTimeField(auto_now_add=True)
     resume=models.URLField()
+    status=models.CharField(max_length=20,choices=ApplicationStatus.choices,default=ApplicationStatus.PENDING)
     
     def __str__(self) -> str:
         return self.applicant
