@@ -23,9 +23,7 @@ class TeacherRegisterationSerializer(serializers.ModelSerializer):
             "password",
             "password2",
         ]
-        extra_kwargs={
-            "phone_number":{"required":True}
-        }
+        extra_kwargs = {"phone_number": {"required": True}}
 
 
 class InstituteRegisterationSerializer(serializers.ModelSerializer):

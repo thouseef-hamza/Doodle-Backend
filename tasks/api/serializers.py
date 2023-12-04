@@ -27,13 +27,13 @@ class InstituteTaskCreateSerializer(serializers.ModelSerializer):
     def validate_title(self, value):
         return value.title()
 
+
 # For Listing, and Getting Task
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         exclude = ("assigned_by", "user_type")
 
-            
 
 # For Inheriting
 class UserTaskSerializer(serializers.ModelSerializer):
@@ -53,4 +53,4 @@ class TaskAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskAssignment
         exclude = ("task",)
-        read_only_fields=("id","task_id","user_id")
+        read_only_fields = ("id", "task_id", "user_id")

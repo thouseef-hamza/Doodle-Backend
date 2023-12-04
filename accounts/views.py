@@ -165,12 +165,12 @@ class OTPVerificationAPIView(APIView):
             )  # message_otp() is from .services.messages
 
             # Handling Twilio Exceptions
-            if verification_sid == "Invalid Phone Number":
+            if verification_sid == "invalid":
                 return Response(
                     {"msg": "Invalid Phone Number"}, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            elif verification_sid == "Service Unavailable":
+            elif verification_sid == "unavailable":
                 return Response(
                     {"msg": "Our Service is not available.Please Try Again Later"},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -286,7 +286,9 @@ class ChangePasswordAPIView(APIView):
         serializer = ChangePasswordSerializer(data=request.data)
         if serializer.is_valid():
             # Here i am checking he entered last password correctly or not
-            if not request.user.check_password(serializer.data.get("old_password")):
+            if not request.user.check_password(
+                serializer.validated_data.get("old_password")
+            ):
                 return Response(
                     {"msg": "Old password is incorrect.Try Again"},
                     status=status.HTTP_400_BAD_REQUEST,

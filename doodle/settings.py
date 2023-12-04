@@ -48,8 +48,10 @@ INSTALLED_APPS = [
     "students.apps.StudentsConfig",
     "teachers.apps.TeachersConfig",
     "tasks.apps.TasksConfig",
+    "videorooms.apps.VideoroomsConfig",
     "rest_framework",
     "corsheaders",
+    "silk",
     "rest_framework_simplejwt",
     "debug_toolbar",
 ]
@@ -59,6 +61,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "silk.middleware.SilkyMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -248,3 +251,17 @@ SWAGGER_SETTINGS = {
         },
     },
 }
+
+# STATIC-ROOT Conf
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
+
+# Django-Silk Configuration
+SILKY_PYTHON_PROFILER = True
+SILKY_PYTHON_PROFILER_BINARY = True
+
+# For Socket
+# ASGI_APPLICATION = "classroom.routing.application"
+
+# Agora Configuration for Video Call
+AGORA_SDK_APP_ID = os.getenv("AGORA_SDK_APP_ID")

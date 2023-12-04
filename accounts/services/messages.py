@@ -28,7 +28,6 @@ class MessageHandler:
             ).verifications.create(to=phone_number, channel="sms")
             return verification.sid
         except TwilioRestException as e:
-            print(e)
             return "invalid"
         except ConnectionError as e:
             return "unavailable"

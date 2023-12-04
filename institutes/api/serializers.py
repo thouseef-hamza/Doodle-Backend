@@ -159,16 +159,21 @@ class UserStudentSerializer(serializers.ModelSerializer):
 class JobCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
-        fields = ("title","requirements","description","category","job_type","company","salary")
-        
-    def validate_title(self,value):
-        return value.title() 
-    
-    def validate_job_type(self,value):
+        fields = (
+            "title",
+            "requirements",
+            "description",
+            "category",
+            "job_type",
+            "company",
+            "salary",
+        )
+
+    def validate_title(self, value):
+        return value.title()
+
+    def validate_job_type(self, value):
         return value.lower()
-    
-    def category(self,value):
+
+    def category(self, value):
         return value.lower()
-    
-    
-    

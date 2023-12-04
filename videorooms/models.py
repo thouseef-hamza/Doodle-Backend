@@ -26,7 +26,7 @@ class ClassRoom(AbstractDate):
         choices=ClassRoomStatus.choices,
         default=ClassRoomStatus.IN_ACTIVE,
     )
-    room_code=models.CharField(max_length=15,blank=True,null=True)
+    room_code = models.CharField(max_length=15, blank=True, null=True)
     room_type = models.CharField(
         max_length=10, choices=ClassRoomType.choices, default=ClassRoomType.PRIVATE
     )

@@ -26,5 +26,7 @@ urlpatterns = [
         views.StudentGetUpdateAPIView.as_view(),
         name="student-get-update",
     ),
-    path("dashboard/",views.InstituteDashboardAPIView.as_view(),name="dashboard-view")
+    path(
+        "dashboard/", views.InstituteDashboardAPIView.as_view(), name="dashboard-view"
+    ),
 ]

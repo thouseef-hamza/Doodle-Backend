@@ -220,9 +220,11 @@ class StudentTaskAssignmentListAPIView(APIView):
             ]:
                 Q_filter &= Q(status=task_status.lower())
             elif search:
-                Q_filter &= Q(user__first_name__icontains=search) | Q(
-                    user__last_name__icontains=search
-                ) | Q(user__unique_code__icontains=search)
+                Q_filter &= (
+                    Q(user__first_name__icontains=search)
+                    | Q(user__last_name__icontains=search)
+                    | Q(user__unique_code__icontains=search)
+                )
         # Fetch Details from 4 models (User (Unique Code Needed) <--- O to O ---> Student Profile (In this profile Have Batch Foriegn) <--- F to O ---> Batch (batch name needed))
         # Used F() for not making nested batch name
         queryset = TaskAssignment.objects.prefetch_related(

@@ -9,6 +9,4 @@ class Command(BaseCommand):
         count = Task.objects.all().count()
         task = Task.objects.all()
         task.delete()
-        self.stdout.write(
-            self.style.ERROR(f"{count} Task object deleted Succesfully")
-        )
+        self.stdout.write(self.style.ERROR(f"{count} Task object deleted Succesfully"))

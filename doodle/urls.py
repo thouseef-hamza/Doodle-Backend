@@ -6,6 +6,7 @@ from django.urls import re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from silk import views as silk_views
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -36,12 +37,16 @@ urlpatterns = [
     path("api/institutes/", include("institutes.api.urls")),
     path("api/students/", include("students.api.urls")),
     path("api/tasks/", include("tasks.api.urls")),
+    path("api/classrooms/", include("videorooms.api.urls")),
 ]
 
 # MEDIA Configuration
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
+# urlpatterns += patterns("", url(r"^silk", include("silk.urls", namespace="silk")))
+
 if settings.DEBUG:
     urlpatterns += [
         path("__debug__/", include("debug_toolbar.urls")),
+        path("silk", include("silk.urls", namespace="silk")),
     ]

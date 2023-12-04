@@ -220,9 +220,7 @@ class StudentListCreateAPIView(APIView):
             )
         print(Q_filter)
         # According to filtered batches listing all the students
-        students = User.objects.filter(Q_filter).order_by(
-            "id"
-        )
+        students = User.objects.filter(Q_filter).order_by("id")
         serializer = UserStudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

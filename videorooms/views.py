@@ -6,13 +6,13 @@ from .api.serializers import ClassRoomCreateUpdateSerializer
 from django.db.models import Q
 from django.contrib.auth.hashers import make_password
 import secrets
+
 # Create your views here.
 
 
 class ClassRoomListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         search = request.GET.get("search", None)
-
         Q_object = Q(hosted_by=request.user)
         if search:
             Q_object &= Q(topic__iexact=search) | Q(description__icontains=search)
@@ -29,10 +29,10 @@ class ClassRoomListCreateAPIView(APIView):
                 topic=serializer.validated_data.get("topic", None),
                 description=serializer.validated_data.get("description", None),
                 start_date=serializer.validated_data.get("start_date", None),
-                password = serializer.validated_data.get("password", None),
+                password=serializer.validated_data.get("password", None),
                 room_status=serializer.validated_data.get("room_status", None),
                 room_type=serializer.validated_data.get("room_type", None),
-                room_code=secrets.token_urlsafe(8)[:8]
+                room_code=secrets.token_urlsafe(8)[:8],
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -68,7 +68,9 @@ class ClassRoomRetrieveUpdateAPIView(APIView):
             instance.password = serializer.validated_data.get(
                 "password", instance.password
             )
-            instance.room_status = serializer.validated_data.get("room_status", instance.room_status)
+            instance.room_status = serializer.validated_data.get(
+                "room_status", instance.room_status
+            )
             instance.room_type = serializer.validated_data.get(
                 "room_type", instance.room_type
             )

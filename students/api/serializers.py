@@ -68,9 +68,9 @@ class UserStudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("first_name", "last_name", "email", "phone_number", "profile")
-        
-class UserStudentTaskAssignmentAPIView(serializers.ModelSerializer):
+
+
+class UserStudentTaskAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model=TaskAssignment
-        fields=("submitted_url","submitted_document","feedback")
-        
+        model = TaskAssignment
+        fields = ("submitted_url", "submitted_document", "feedback")

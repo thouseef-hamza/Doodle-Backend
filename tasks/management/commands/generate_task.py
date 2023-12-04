@@ -40,7 +40,7 @@ class Command(BaseCommand):
             email = email
         else:
             email = "fsa@gmail.com"
-        assigned_by,_ = User.objects.get_or_create(email=email)
+        assigned_by, _ = User.objects.get_or_create(email=email)
         for i in range(count):
             if usertype:
                 user_type = usertype

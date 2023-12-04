@@ -77,7 +77,7 @@ class Job(AbstractDate):
     company = models.ForeignKey(
         InstituteProfile, on_delete=models.CASCADE, related_name="institute_jobs"
     )
-    salary=models.PositiveIntegerField(default=35_000)
+    salary = models.PositiveIntegerField(default=35_000)
 
     def __str__(self) -> str:
         return self.title
@@ -85,21 +85,24 @@ class Job(AbstractDate):
 
 class Application(models.Model):
     class ApplicationStatus(models.TextChoices):
-        PENDING = "pending","Pending"
-        REVIEW = "review","Review"
-        REJECTED = "rejected","Rejected"
-        ACCEPTED = "accepted","Accepted"
-        
+        PENDING = "pending", "Pending"
+        REVIEW = "review", "Review"
+        REJECTED = "rejected", "Rejected"
+        ACCEPTED = "accepted", "Accepted"
+
     job = models.ForeignKey(
         Job, on_delete=models.CASCADE, related_name="job_application"
     )
     applicant = models.ForeignKey(
         TeacherProfile, on_delete=models.CASCADE, related_name="job_applicant"
     )
-    application_date=models.DateTimeField(auto_now_add=True)
-    resume=models.URLField()
-    status=models.CharField(max_length=20,choices=ApplicationStatus.choices,default=ApplicationStatus.PENDING)
-    
+    application_date = models.DateTimeField(auto_now_add=True)
+    resume = models.URLField()
+    status = models.CharField(
+        max_length=20,
+        choices=ApplicationStatus.choices,
+        default=ApplicationStatus.PENDING,
+    )
+
     def __str__(self) -> str:
         return self.applicant
-    
