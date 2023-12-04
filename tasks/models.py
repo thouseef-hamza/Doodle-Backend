@@ -10,7 +10,6 @@ class Task(models.Model):
     class UserType(models.TextChoices):
         TEACHER = "teacher", "Teacher"
         INSTITUTE = "institute", "Institute"
-        STUDENT = "student", "Student"
 
     class TaskType(models.TextChoices):
         INDIVIDUAL = "individual", "Individual"
@@ -38,15 +37,30 @@ class Task(models.Model):
 
 
 class TaskAssignment(models.Model):
+    class TaskAssignmentStatus(models.TextChoices):
+        GOOD = "good", "Good"
+        FAIR = "fair", "Fair"
+        NEEDS_IMPROVEMENT = "needs_improvement", "Needs Improvement"
+        REVIEWING = "reviewing", "Reviewing"
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True)
     submitted_url = models.URLField(null=True, blank=True)
     submitted_document = models.FileField(
         upload_to="task_documents/", null=True, blank=True
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=TaskAssignmentStatus.choices,
+        default=TaskAssignmentStatus.REVIEWING,
     )
     feedback = models.TextField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     is_submitted = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.task.title.upper()} - {self.task.assigned_by} ({self.task.user_type}) to {self.user}" if self.task else str(self.user)
+        return (
+            f"{self.task.title.upper()} - {self.task.assigned_by} ({self.task.user_type}) to {self.user}"
+            if self.task
+            else str(self.user)
+        )
