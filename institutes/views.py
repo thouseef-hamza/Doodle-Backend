@@ -101,6 +101,7 @@ class BatchListCreateAPIView(APIView):
             Q_filter &= Q(name__icontains=search)
         queryset = Batch.objects.filter(Q_filter).order_by("id")
         serializer = BatchSerializer(queryset, many=True)
+        print(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(

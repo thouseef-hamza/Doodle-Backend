@@ -1,11 +1,12 @@
 from rest_framework.views import APIView
 from .models import ClassRoom
 from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework import status
 from .api.serializers import ClassRoomCreateUpdateSerializer
 from django.db.models import Q
 from django.contrib.auth.hashers import make_password
-import secrets
+import secrets,json
 
 # Create your views here.
 
@@ -88,3 +89,14 @@ class ClassRoomRetrieveUpdateAPIView(APIView):
         return Response(
             {"msg": "Classroom Deleted Successfully"}, status=status.HTTP_204_NO_CONTENT
         )
+        
+class VideoRoomJoin(APIView):
+    def post(self,request):
+        room_code = json.loads(request.data.get("room_code",None))
+        password = json.loads(request.data.get("password",None))
+        classroom = ClassRoom.objects.filter(room_code=room_code).first()
+        if not classroom:
+            return Response({"msg":"There is no class room actively"},status=status.HTTP_404_NOT_FOUND)
+        if classroom.password == password.strip():
+            return JsonResponse({"user":request.user})
+        return Response({"msg":"Invalid Room Code or Password"},status=status.HTTP_400_BAD_REQUEST)

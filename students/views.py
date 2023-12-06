@@ -11,7 +11,7 @@ from tasks.models import TaskAssignment, Task
 from django.db.models import F
 
 
-class UserStudentUpdateAPIView(APIView):
+class UserStudentRetrieveUpdateAPIView(APIView):
     def get_queryset(self, user_id):
         return User.objects.filter(id=user_id).select_related("student_profile").first()
 
@@ -80,8 +80,8 @@ class UserStudentTaskRetrieveListAPIView(APIView):
 
 
 class UserStudentTaskAssignmentRetrieveUpdateAPIView(APIView):
-    def get_queryset(self, task_id, user):
-        return TaskAssignment.objects.filter(task_id=id, user_id=user.id)
+    def get_queryset(self, _id, user):
+        return TaskAssignment.objects.filter(task_id=_id, user_id=user.id)
 
     def get(self, request, pk=None, *args, **kwargs):
         instance = (
@@ -125,3 +125,7 @@ class UserStudentTaskAssignmentRetrieveUpdateAPIView(APIView):
             )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_200_OK)
+
+
+
+
