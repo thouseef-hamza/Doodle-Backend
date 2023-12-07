@@ -29,4 +29,6 @@ urlpatterns = [
         name="user-change-password",
     ),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("email/reset/password/",views.ForgetPasswordAPIView.as_view(),name="forget-password-email"),
+    path("reset/password/<uid>/<token>/",views.ForgetResetPasswordAPIView.as_view(),name="forget-password-reset"),
 ]

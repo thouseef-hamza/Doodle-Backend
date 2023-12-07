@@ -2,6 +2,7 @@ from rest_framework import serializers
 from ..models import User
 
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -48,3 +49,28 @@ class UserLoginSerializer(serializers.Serializer):
 class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
     old_password = serializers.CharField(required=True)
+
+class ForgetPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField()
+    password2 = serializers.CharField()
+    
+    def validate(self, attrs):
+        password = attrs.get("password")
+        password2 = attrs.get("password2")
+        if password and password2 and password == password2:
+            return attrs
+        return serializers.ValidationError("Password and Confirm Password is not match")
+    
+class ResetPasswordSerializer(serializers.Serializer):
+        email=serializers.EmailField()
+        
+        class Meta:
+            fields = ("email",)
+            
+        def validate_email(self,value):
+            if User.objects.filter(email=value).exists():
+                return value
+            raise serializers.ValidationError({"msg":"User with this email does not exist"})
+        
+                
+    

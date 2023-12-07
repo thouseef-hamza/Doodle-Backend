@@ -9,6 +9,8 @@ from .api.serializers import (
     UserLoginSerializer,
     UserSerializer,
     ChangePasswordSerializer,
+    ForgetPasswordSerializer,
+    ResetPasswordSerializer,
 )
 from .models import User
 from .services.messages import message_otp
@@ -20,6 +22,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, DjangoUnicodeDecodeError, smart_str
+from django.http import HttpResponseRedirect
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 # Create your views here.
@@ -274,8 +282,42 @@ class UserLoginAPIVew(APIView):
 
 
 class ForgetPasswordAPIView(APIView):
-    def patch(self, request, *args, **kwargs):
-        pass
+    def post(self, request, *args, **kwargs):
+        email = request.data.get("email", None)
+        serializer = ResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            if email and User.objects.filter(email=email).exists():
+                user = User.objects.get(email=email)
+                uid = urlsafe_base64_encode(force_bytes(user.id))
+                token = PasswordResetTokenGenerator().make_token(user)
+                link = "https://localhost:5173/api/accounts/reset/" + uid + "/" + token
+                send_mail("Password Reset Email Link", link, settings.EMAIL_HOST_USER,recipient_list=[email])
+                return Response(
+                    {"msg": "Password Reset Email Send, Please Check your email"},
+                    status=status.HTTP_200_OK,
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgetResetPasswordAPIView(APIView):
+    def post(self, request, uid, token, *args, **kwargs):
+        serializer = ForgetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            id = smart_str(urlsafe_base64_decode(uid))
+            user = User.objects.filter(id=id).first()
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return Response(
+                    {"msg": "Token is not valid or Expired"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.set_password(serializer.validated_data.get("password"))
+            user.save(update_fields=["password"])
+            return Response(
+                {"msg": "Password Reset Suucessfully"}, status=status.HTTP_200_OK
+            )
+        return Response(
+            {"msg": "Password Doest Not Match"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class ChangePasswordAPIView(APIView):
