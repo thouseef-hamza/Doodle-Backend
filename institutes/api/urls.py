@@ -29,4 +29,6 @@ urlpatterns = [
     path(
         "dashboard/", views.InstituteDashboardAPIView.as_view(), name="dashboard-view"
     ),
+    path("payments/detail/",views.InstitutePaymentDetailListCreateAPIView.as_view(),name="institute-payment-detail-list-create"),
+    path("payments/detail/<int:pk>/",views.InstitutePaymentDetailRetrieveUpdateAPIView.as_view(),name="institute-payment-detail-retrieve-update"),
 ]

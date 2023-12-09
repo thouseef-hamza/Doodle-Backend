@@ -1,6 +1,9 @@
 from django.db import models
 from accounts.models import User
 from teachers.models import TeacherProfile
+from datetime import datetime
+from django.utils import timezone
+from payments.models import UserPaymentDetail
 
 # Create your models here.
 
@@ -39,6 +42,14 @@ class Batch(models.Model):
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     description = models.TextField(blank=True, null=True)
+    institute_payment_detail = models.ForeignKey(
+        UserPaymentDetail, on_delete=models.CASCADE, null=True
+    )
+    batch_fees = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    fee_penalty = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    scheduled_date = models.DateField(null=True)
+    is_scheduled = models.BooleanField(default=False)
+    due_date = models.DateField(null=True)
 
     class Meta:
         verbose_name = "Batch"

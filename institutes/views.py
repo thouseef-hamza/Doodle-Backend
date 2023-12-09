@@ -5,6 +5,7 @@ from .api.serializers import (
     BatchSerializer,
     UserStudentSerializer,
     JobCreateUpdateSerializer,
+    InstitutePaymentDetailSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -22,6 +23,8 @@ from drf_yasg.utils import swagger_auto_schema
 from accounts.models import User
 from django.db.models import F, Count
 from datetime import date
+from payments.models import UserPaymentDetail
+from django.utils import timezone
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -159,6 +162,7 @@ class BatchGetUpdateAPIView(APIView):
         },
     )
     def put(self, request, pk=None, *args, **kwargs):
+        # Here request.user is Institute
         instance = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
         ).first()
@@ -168,7 +172,32 @@ class BatchGetUpdateAPIView(APIView):
             instance.description = serializer.validated_data.get(
                 "description", instance.description
             )
-            instance.save(update_fields=["name", "description"])
+            instance.batch_fees = serializer.validated_data.get(
+                "batch_fees", instance.batch_fees if instance.batch_fees else None
+            )
+            instance.scheduled_date = serializer.validated_data.get(
+                "scheduled_date",
+                instance.scheduled_date if instance.scheduled_date else timezone.now().date(),
+            )
+            instance.is_scheduled = bool(serializer.validated_data.get("is_scheduled", None))
+            instance.due_date = serializer.validated_data.get(
+                "due_date", instance.due_date if instance.due_date else timezone.now().date() + timezone.timedelta(days=5)
+            )
+            payment_id = request.data.get("payment_id", None)
+            payment_detail = UserPaymentDetail.objects.filter(pk=int(payment_id)).first()
+            if payment_detail:
+                instance.institute_payment_detail = payment_detail
+            instance.save(
+                update_fields=[
+                    "name",
+                    "description",
+                    "batch_fees",
+                    "scheduled_date",
+                    "is_scheduled",
+                    "due_date",
+                    "institute_payment_detail",
+                ]
+            )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -265,6 +294,79 @@ class StudentListCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class InstitutePaymentDetailListCreateAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        instance = UserPaymentDetail.objects.filter(user=request.user).values()
+        if not instance:
+            return Response([], status=status.HTTP_200_OK)
+        return Response(instance, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        serializer = InstitutePaymentDetailSerializer(data=request.data)
+        if serializer.is_valid():
+            UserPaymentDetail.objects.create(
+                user=request.user,
+                payment_number=serializer.validated_data.get("payment_number", None),
+                payment_qr=serializer.validated_data.get("payment_qr", None),
+                payment_bank=serializer.validated_data.get("payment_bank", None),
+                upi_id=serializer.validated_data.get("upi_id", None),
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InstitutePaymentDetailRetrieveUpdateAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self, pk, user):
+        user = UserPaymentDetail.objects.filter(id=pk, user=user)
+        if not user:
+            raise Response(
+                {"msg": "Payment Details Not Found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        return user
+
+    def get(self, request, pk=None, *args, **kwargs):
+        instance = (
+            self.get_queryset(pk, request.user.id)
+            .values("payment_number", "payment_qr", "payment_bank", "upi_id")
+            .first()
+        )
+        return Response(instance, status=status.HTTP_200_OK)
+
+    def put(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(pk, request.user.id).first()
+        serializer = InstitutePaymentDetailSerializer(data=request.data)
+        if serializer.is_valid():
+            instance.payment_number = serializer.validated_data.get(
+                "payment_number", instance.payment_number
+            )
+            instance.payment_bank = serializer.validated_data.get(
+                "payment_bank", instance.payment_bank
+            )
+            instance.payment_qr = serializer.validated_data.get(
+                "payment_qr", instance.payment_qr
+            )
+            instance.save()
+            return Response(
+                {"msg": "Payment Detail Updated Successfully"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(pk, request.user.id).first()
+        instance.delete()
+        return Response(
+            {"msg": "Payment Detail Deleted Successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
 class StudentGetUpdateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -338,6 +440,9 @@ class StudentGetUpdateAPIView(APIView):
 
 
 class JobListCreateAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
     def get_queryset(self, user):
         return Job.objects.filter(company=user.id).values()
 
@@ -383,6 +488,9 @@ class JobListCreateAPIView(APIView):
 
 
 class JobRetriveUpdateAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
     def get_queryset(self, pk, user):
         return Job.objects.filter(id=pk, company=user.id)
 
@@ -465,6 +573,9 @@ class JobRetriveUpdateAPIView(APIView):
 
 
 class InstituteDashboardAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
     def get(self, request, *args, **kwargs):
         instance = Batch.objects.filter(institute=request.user.id).aggregate(
             batch_count=Count("id"), student_count=Count("student_batch")

@@ -12,10 +12,10 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import os
 
-# load_dotenv()
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,30 +30,35 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "drf_yasg",
     "accounts.apps.AccountsConfig",
     "institutes.apps.InstitutesConfig",
     "students.apps.StudentsConfig",
     "teachers.apps.TeachersConfig",
     "tasks.apps.TasksConfig",
     "videorooms.apps.VideoroomsConfig",
+    "payments.apps.PaymentsConfig",
+    "drf_yasg",
     "rest_framework",
     "corsheaders",
     "silk",
     "rest_framework_simplejwt",
     "debug_toolbar",
+    "channels",
+    "django_celery_results",
+    "django_celery_beat"
 ]
 
 MIDDLEWARE = [
@@ -88,6 +93,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "doodle.wsgi.application"
+ASGI_APPLICATION = "doodle.asgi.application"
 
 
 # Database
@@ -212,7 +218,6 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-print(EMAIL_HOST_USER,"=====",EMAIL_HOST_PASSWORD)
 
 # DEBUG Toolbar configuration
 INTERNAL_IPS = [
@@ -266,3 +271,27 @@ SILKY_PYTHON_PROFILER_BINARY = True
 
 # Agora Configuration for Video Call
 AGORA_SDK_APP_ID = os.getenv("AGORA_SDK_APP_ID")
+
+
+# Django Channels 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("localhost", 6379)],
+        },
+    },
+}
+
+
+# CELERY Settings
+
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_RESULT_BACKEND = 'django-db'
+
+# CELERY Beat
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

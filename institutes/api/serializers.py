@@ -3,6 +3,7 @@ from ..models import InstituteProfile
 from accounts.models import User
 from ..models import Batch, Topic, Job, Application
 from students.models import StudentProfile
+from payments.models import UserPaymentDetail
 
 
 class InstituteProfileSerializer(serializers.ModelSerializer):
@@ -84,6 +85,12 @@ class BatchSerializer(serializers.ModelSerializer):
         model = Batch
         fields = "__all__"
         read_only_fields = ("institute",)
+        
+class InstitutePaymentDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPaymentDetail
+        fields = ("payment_number","payment_qr","payment_bank","upi_id")
+    
 
 
 class UserStudentProfileSerializer(serializers.ModelSerializer):
