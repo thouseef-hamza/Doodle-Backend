@@ -59,6 +59,7 @@ def send_student_payment_fees_to_email():
             batch.institute.user.first_name + " " + batch.institute.user.last_name
         )
         for students in batch.student_batch.all():
+            print(students)
             student_email = students.user.email
             student = StudentPayment.objects.create(
                 student=students, sender=sender, fee_amount=batch_fee
@@ -131,7 +132,7 @@ def student_fees_overdue_penalty():
     Q_filter = Q(is_scheduled=True) & \
         (
             Q(due_date__month=current_month)
-            & Q(due_date__day__gt=current_day)
+            & Q(due_date__day__lt=current_day)
         )\
         &(Q(student_batch__student_payment_fees__fee_status="pending")
         | Q(student_batch__student_payment_fees__fee_status="overdue"))
@@ -143,21 +144,9 @@ def student_fees_overdue_penalty():
     ).distinct()
     print(batch_obj)
     for batch in batch_obj:
-        print(
-            batch,
-            "=============================================================================================",
-        )
         fee_penalty = batch.fee_penalty
-        print(
-            fee_penalty,
-            "======================================================================================",
-        )
         if fee_penalty:
             for student in batch.student_batch.all():
-                print(
-                    student,
-                    "===================================================================================",
-                )
                 student.student_payment_fees.update(
                     fee_amount=F("fee_amount") + fee_penalty, fee_status="overdue"
                 )
