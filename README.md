@@ -21,8 +21,11 @@ Here I am Presenting you the website named "doodle".Tution Center needs a platfo
 - Fully Functional APIView
 - Search & Sort
 # Ongoing Features
+- Payment for Student using Stripe
 - Chatroom For Connecting with Teachers and Students
 - Chart JS for Student Activity Graph
 # Upcoming Features
 - Video Call between Teachers And Students
-
+# Next Module
+- Complete Job Portal for Teachers
+- Planning for Postgis for filtering based on location to find teachers and institutes within the range 
