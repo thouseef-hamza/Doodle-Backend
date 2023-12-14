@@ -8,6 +8,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = RefreshToken.for_user(user)
 
         token["email"] = user.email
+        token["first_name"] = user.first_name
         token["is_blocked"] = user.is_blocked
         token["is_institute"] = user.is_institute
         token["is_teacher"] = user.is_teacher

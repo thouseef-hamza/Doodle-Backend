@@ -3,6 +3,7 @@ from ..models import StudentProfile
 from rest_framework import serializers
 from tasks.models import TaskAssignment
 import re
+from payments.models import StudentPayment,UserPaymentDetail
 
 
 class UserStudentProfileUpdateSerializer(serializers.ModelSerializer):
@@ -74,3 +75,13 @@ class UserStudentTaskAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskAssignment
         fields = ("submitted_url", "submitted_document", "feedback")
+        
+class InstitutePaymentDetails(serializers.ModelSerializer):
+    class Meta:
+        model=UserPaymentDetail
+        fields = ("payment_number","payment_qr","payment_bank","upi_id")
+class UserStudentPaymentUpdateSerializer(serializers.ModelSerializer):
+    payment_details=InstitutePaymentDetails(source="sender",read_only=True)
+    class Meta:
+        model=StudentPayment
+        fields = ("fee_paid","payment_id","payment_method")

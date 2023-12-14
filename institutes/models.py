@@ -45,8 +45,8 @@ class Batch(models.Model):
     institute_payment_detail = models.ForeignKey(
         UserPaymentDetail, on_delete=models.CASCADE, null=True
     )
-    batch_fees = models.DecimalField(max_digits=10, decimal_places=2, null=True)
-    fee_penalty = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    batch_fees = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
+    fee_penalty = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
     scheduled_date = models.DateField(null=True)
     is_scheduled = models.BooleanField(default=False)
     due_date = models.DateField(null=True)

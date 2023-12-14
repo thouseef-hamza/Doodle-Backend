@@ -25,6 +25,9 @@ from django.db.models import F, Count
 from datetime import date
 from payments.models import UserPaymentDetail
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
+from payments.models import StudentPayment
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -99,12 +102,26 @@ class BatchListCreateAPIView(APIView):
         # Based on institute i am filter their batches only
         # or else other institute can see other institute batches
         search = request.GET.get("search", None)
+        scheduled = request.GET.get("scheduled", None)
+        sort = request.GET.get("sort", None)
         Q_filter = Q(institute__user_id=request.user.id)
+        order_by = "name"
         if search:
-            Q_filter &= Q(name__icontains=search)
-        queryset = Batch.objects.filter(Q_filter).order_by("id")
+            Q_filter &= Q(name__istartswith=search)
+        if scheduled:
+            Q_filter &= Q(is_scheduled=True)
+        if sort:
+            match sort:
+                case "asc":
+                    order_by = "name"
+                case "desc":
+                    order_by = "-name"
+                case "fee_asc":
+                    order_by = "batch_fees"
+                case "fee_desc":
+                    order_by = "-batch_fees"
+        queryset = Batch.objects.filter(Q_filter).order_by(order_by)
         serializer = BatchSerializer(queryset, many=True)
-        print(serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
@@ -177,14 +194,23 @@ class BatchGetUpdateAPIView(APIView):
             )
             instance.scheduled_date = serializer.validated_data.get(
                 "scheduled_date",
-                instance.scheduled_date if instance.scheduled_date else timezone.now().date(),
+                instance.scheduled_date
+                if instance.scheduled_date
+                else timezone.now().date(),
             )
-            instance.is_scheduled = bool(serializer.validated_data.get("is_scheduled", None))
+            instance.is_scheduled = bool(
+                serializer.validated_data.get("is_scheduled", None)
+            )
             instance.due_date = serializer.validated_data.get(
-                "due_date", instance.due_date if instance.due_date else timezone.now().date() + timezone.timedelta(days=5)
+                "due_date",
+                instance.due_date
+                if instance.due_date
+                else timezone.now().date() + timezone.timedelta(days=5),
             )
             payment_id = request.data.get("payment_id", None)
-            payment_detail = UserPaymentDetail.objects.filter(pk=int(payment_id)).first()
+            payment_detail = UserPaymentDetail.objects.filter(
+                pk=int(payment_id)
+            ).first()
             if payment_detail:
                 instance.institute_payment_detail = payment_detail
             instance.save(
@@ -237,10 +263,9 @@ class StudentListCreateAPIView(APIView):
     )
     def get(self, request, *args, **kwargs):
         # Based on every each institute filtering their batches
-        batches = Batch.objects.filter(institute__user_id=request.user.id)
         search = request.GET.get("search", None)
         print(search)
-        Q_filter = Q(student_profile__batch__id__in=batches)
+        Q_filter = Q(student_profile__batch__institute_id=request.user.id)
         if search:
             Q_filter &= (
                 Q(first_name__iexact=search)
@@ -251,6 +276,7 @@ class StudentListCreateAPIView(APIView):
         print(Q_filter)
         # According to filtered batches listing all the students
         students = User.objects.filter(Q_filter).order_by("id")
+        print(students)
         serializer = UserStudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -274,7 +300,7 @@ class StudentListCreateAPIView(APIView):
                 )
 
             batch = get_object_or_404(Batch, id=int(batch_id))
-            user = User.objects.create(
+            student = User.objects.create(
                 first_name=serializer.validated_data.get("first_name", None),
                 last_name=serializer.validated_data.get("last_name", None),
                 email=serializer.validated_data.get("email", None),
@@ -282,15 +308,26 @@ class StudentListCreateAPIView(APIView):
                 is_student=True,
             )
             password = generate_random_password()
-            user.unique_code = "STU %06d" % user.id
-            user.set_password(password)
-            user.save(update_fields=["unique_code", "password"])
-            student = StudentProfile.objects.filter(user=user).first()
-            student.batch = batch
-            student.save()
-            return Response(
-                UserStudentSerializer(student.user).data, status=status.HTTP_201_CREATED
+            student.unique_code = "STU %06d" % student.id
+            student.password = password
+            student.save(update_fields=["unique_code", "password"])
+            student_profile = StudentProfile.objects.filter(user=student).first()
+            student_profile.batch = batch
+            student_profile.save(update_fields=["batch"])
+            # Here request.user is Institute Not Students,
+            # Students Have No Registeration Page
+            # Sending Their Login Credential Through Email
+            send_mail(
+                subject=f"""Login Credentials From - {request.user.first_name+" "+request.user.last_name}""",
+                message=f"""Dear{student.first_name + " "+student.last_name}
+                Your Login Credentials For Your Class Room Are:
+                Your Code :- {student.unique_code},
+                Your Password :- {student.password}
+                """,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[student.email],
             )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -439,6 +476,33 @@ class StudentGetUpdateAPIView(APIView):
         )
 
 
+class StudentPaymentListAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        search = request.GET.get("search", None)
+        Q_filter = Q(sender=request.user)
+        if search:
+            Q_filter &= Q()
+        instance = (
+            StudentPayment.objects.filter(Q_filter)
+            .select_related("student__batch")
+            .values()
+        )
+
+
+class InstituteDashboardAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        instance = Batch.objects.filter(institute=request.user.id).aggregate(
+            batch_count=Count("id"), student_count=Count("student_batch")
+        )
+
+        print(instance)
+        return Response(instance, status=status.HTTP_200_OK)
+
+
+# ================================== Version 2 Release Features Job Portal For Teachers ==================================================================================
 class JobListCreateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -570,19 +634,6 @@ class JobRetriveUpdateAPIView(APIView):
                 {"msg": "Job Deleted Successfully"}, status=status.HTTP_200_OK
             )
         return Response({"msg": "Job Not Found"}, status=status.HTTP_404_NOT_FOUND)
-
-
-class InstituteDashboardAPIView(APIView):
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request, *args, **kwargs):
-        instance = Batch.objects.filter(institute=request.user.id).aggregate(
-            batch_count=Count("id"), student_count=Count("student_batch")
-        )
-
-        print(instance)
-        return Response(instance, status=status.HTTP_200_OK)
 
 
 class TeacherListAPIView(APIView):

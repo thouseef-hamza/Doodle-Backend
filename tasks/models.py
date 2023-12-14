@@ -57,6 +57,7 @@ class TaskAssignment(models.Model):
     feedback = models.TextField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     is_submitted = models.BooleanField(default=False)
+    is_notified = models.BooleanField(default=False)
 
     def __str__(self):
         return (

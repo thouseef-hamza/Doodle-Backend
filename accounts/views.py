@@ -313,7 +313,7 @@ class ForgetResetPasswordAPIView(APIView):
             user.set_password(serializer.validated_data.get("password"))
             user.save(update_fields=["password"])
             return Response(
-                {"msg": "Password Reset Suucessfully"}, status=status.HTTP_200_OK
+                {"msg": "Password Reset Successfully"}, status=status.HTTP_200_OK
             )
         return Response(
             {"msg": "Password Doest Not Match"}, status=status.HTTP_400_BAD_REQUEST

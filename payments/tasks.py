@@ -150,3 +150,5 @@ def student_fees_overdue_penalty():
                 student.student_payment_fees.update(
                     fee_amount=F("fee_amount") + fee_penalty, fee_status="overdue"
                 )
+                
+                

@@ -6,9 +6,12 @@ from .api.serializers import (
     UserStudentSerializer,
     UserStudentProfileUpdateSerializer,
     UserStudentTaskAssignmentSerializer,
+    UserStudentPaymentUpdateSerializer,
 )
 from tasks.models import TaskAssignment, Task
 from django.db.models import F
+from payments.models import StudentPayment
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 class UserStudentRetrieveUpdateAPIView(APIView):
@@ -127,5 +130,52 @@ class UserStudentTaskAssignmentRetrieveUpdateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_200_OK)
 
 
+class UserStudentPaymentsListAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+
+    def get(self, request, *args, **kwargs):
+        instance = StudentPayment.objects.filter(
+            student=request.user.student_profile.id
+        ).values()
+        if instance is None:
+            return Response([], status=status.HTTP_200_OK)
+        return Response(instance, status=status.HTTP_200_OK)
 
 
+class UserStudentPaymentRetrieveUpdateAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+
+    def get_queryset(self, pk, user):
+        return StudentPayment.objects.filter(user=user.student_profile.id, pk=pk)
+
+    def get(self, request, pk=None, *args, **kwargs):
+        instance = (
+            self.get_queryset(pk, request.user)
+            .select_related("sender")
+            .values()
+            .first()
+        )
+        if instance is None:
+            return Response({}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(instance, status=status.HTTP_200_OK)
+
+    def put(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(pk, request.user).first()
+        if instance is None:
+            return Response(
+                {"msg": "Payment Not Found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = UserStudentPaymentUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            instance.fee_paid = serializer.validated_data.get(
+                "fee_paid", instance.fee_paid
+            )
+            instance.payment_id = serializer.validated_data.get(
+                "payment_id", instance.payment_id
+            )
+            instance.payment_method = serializer.validated_data.get(
+                "payment_method", instance.payment_method
+            )
+            instance.save()
+            return Response({"msg":"Payment Updated Successfully"},status=status.HTTP_200_OK)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
