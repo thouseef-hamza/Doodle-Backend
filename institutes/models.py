@@ -40,16 +40,16 @@ class Batch(models.Model):
     institute = models.ForeignKey(InstituteProfile, models.CASCADE, null=True)
     topics = models.ManyToManyField(Topic)
     name = models.CharField(max_length=100)
-    start_date = models.DateField()
+    start_date = models.DateTimeField(null=True)
     description = models.TextField(blank=True, null=True)
     institute_payment_detail = models.ForeignKey(
         UserPaymentDetail, on_delete=models.CASCADE, null=True
     )
     batch_fees = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
     fee_penalty = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
-    scheduled_date = models.DateField(null=True)
+    scheduled_date = models.DateTimeField(null=True)
     is_scheduled = models.BooleanField(default=False)
-    due_date = models.DateField(null=True)
+    due_date = models.DateTimeField(null=True)
 
     class Meta:
         verbose_name = "Batch"

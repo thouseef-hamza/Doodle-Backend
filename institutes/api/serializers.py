@@ -84,13 +84,14 @@ class BatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Batch
         fields = "__all__"
-        read_only_fields = ("institute",)
-        
+        read_only_fields = ("institute","id")
+
+
+
 class InstitutePaymentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPaymentDetail
-        fields = ("payment_number","payment_qr","payment_bank","upi_id")
-    
+        fields = ("payment_number", "payment_qr", "payment_bank", "upi_id")
 
 
 class UserStudentProfileSerializer(serializers.ModelSerializer):

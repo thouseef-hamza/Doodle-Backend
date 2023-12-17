@@ -28,6 +28,7 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from payments.models import StudentPayment
+from .pagination import SmallResultPagination
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -103,26 +104,31 @@ class BatchListCreateAPIView(APIView):
         # or else other institute can see other institute batches
         search = request.GET.get("search", None)
         scheduled = request.GET.get("scheduled", None)
-        sort = request.GET.get("sort", None)
+        sort = request.GET.get("sort", "name")
         Q_filter = Q(institute__user_id=request.user.id)
-        order_by = "name"
         if search:
             Q_filter &= Q(name__istartswith=search)
         if scheduled:
             Q_filter &= Q(is_scheduled=True)
-        if sort:
-            match sort:
-                case "asc":
-                    order_by = "name"
-                case "desc":
-                    order_by = "-name"
-                case "fee_asc":
-                    order_by = "batch_fees"
-                case "fee_desc":
-                    order_by = "-batch_fees"
-        queryset = Batch.objects.filter(Q_filter).order_by(order_by)
+        match sort:
+            case "desc":
+                order_by = "-name"
+            case "fee_asc":
+                order_by = "batch_fees"
+            case "fee_desc":
+                order_by = "-batch_fees"
+            case _:
+                order_by = "name"
+        instance = Batch.objects.filter(Q_filter).order_by(order_by)
+        paginator = SmallResultPagination()
+        total_page = len(instance) // paginator.page_size
+        queryset = paginator.paginate_queryset(instance, request)
         serializer = BatchSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_data = {
+            "total_page": total_page,
+            "batch": serializer.data,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         tags=["Institute Batch"],
@@ -143,6 +149,8 @@ class BatchListCreateAPIView(APIView):
                 name=serializer.validated_data.get("name", None),
                 start_date=serializer.validated_data.get("start_date", None),
                 description=serializer.validated_data.get("description", None),
+                batch_fees=serializer.validated_data.get("batch_fees", None),
+                fee_penalty=serializer.validated_data.get("fee_penalty", None),
             )
             return Response(BatchSerializer(batch).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -183,36 +191,37 @@ class BatchGetUpdateAPIView(APIView):
         instance = Batch.objects.filter(
             Q(id=pk) & Q(institute__user_id=request.user.id)
         ).first()
-        serializer = BatchSerializer(instance, data=request.data)
+        serializer = BatchSerializer(data=request.data)
         if serializer.is_valid():
             instance.name = serializer.validated_data.get("name", instance.name)
+            instance.start_date = serializer.validated_data.get(
+                "start_date", instance.start_date
+            )
             instance.description = serializer.validated_data.get(
                 "description", instance.description
             )
             instance.batch_fees = serializer.validated_data.get(
-                "batch_fees", instance.batch_fees if instance.batch_fees else None
+                "batch_fees", instance.batch_fees
+            )
+            instance.fee_penalty = serializer.validated_data.get(
+                "fee_penalty", instance.fee_penalty
             )
             instance.scheduled_date = serializer.validated_data.get(
-                "scheduled_date",
-                instance.scheduled_date
-                if instance.scheduled_date
-                else timezone.now().date(),
+                "scheduled_date", instance.scheduled_date
             )
             instance.is_scheduled = bool(
-                serializer.validated_data.get("is_scheduled", None)
+                serializer.validated_data.get("is_scheduled", instance.is_scheduled)
             )
             instance.due_date = serializer.validated_data.get(
-                "due_date",
-                instance.due_date
-                if instance.due_date
-                else timezone.now().date() + timezone.timedelta(days=5),
+                "due_date", instance.due_date
             )
             payment_id = request.data.get("payment_id", None)
-            payment_detail = UserPaymentDetail.objects.filter(
-                pk=int(payment_id)
-            ).first()
-            if payment_detail:
-                instance.institute_payment_detail = payment_detail
+            if payment_id:
+                payment_detail = UserPaymentDetail.objects.filter(
+                    pk=int(payment_id)
+                ).first()
+                if payment_detail:
+                    instance.institute_payment_detail = payment_detail
             instance.save(
                 update_fields=[
                     "name",
@@ -264,21 +273,39 @@ class StudentListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         # Based on every each institute filtering their batches
         search = request.GET.get("search", None)
-        print(search)
+        batch = request.GET.get("batch", None)
+        sort = request.GET.get("sort", "asc")
         Q_filter = Q(student_profile__batch__institute_id=request.user.id)
         if search:
             Q_filter &= (
-                Q(first_name__iexact=search)
+                Q(first_name__istartswith=search)
                 | Q(last_name__iexact=search)
                 | Q(unique_code__iexact=search)
-                | Q(email__iexact=search)
+                | Q(email__istartswith=search)
             )
-        print(Q_filter)
+        if batch and int(batch):
+            Q_filter &= Q(student_profile__batch_id=batch)
+        match sort:
+            case "desc":
+                order_by = "-first_name"
+            case _:
+                order_by = "first_name"
         # According to filtered batches listing all the students
-        students = User.objects.filter(Q_filter).order_by("id")
-        print(students)
-        serializer = UserStudentSerializer(students, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        students = (
+            User.objects.filter(Q_filter)
+            .select_related("student_profile")
+            .order_by(order_by)
+        )
+        paginator = SmallResultPagination()
+        total_page = len(students) // paginator.page_size
+        queryset = paginator.paginate_queryset(students, request)
+        serializer = UserStudentSerializer(queryset, many=True)
+        print(serializer.data)
+        response_data = {
+            "total_page": total_page,
+            "students": serializer.data,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         tags=["Institute Student"],
@@ -476,17 +503,23 @@ class StudentGetUpdateAPIView(APIView):
         )
 
 
-class StudentPaymentListAPIView(APIView):
+class StudentPaymentListRetrieveUpdateAPIView(APIView):
     def get(self, request, *args, **kwargs):
+        print(args)
+        print(kwargs.get("pk"))
         search = request.GET.get("search", None)
         Q_filter = Q(sender=request.user)
         if search:
             Q_filter &= Q()
         instance = (
             StudentPayment.objects.filter(Q_filter)
-            .select_related("student__batch")
+            .select_related(batch=F("student__batch__name"))
             .values()
         )
+        return Response(instance, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        pass
 
 
 class InstituteDashboardAPIView(APIView):
