@@ -60,9 +60,11 @@ class InstituteProfileGetUpdateAPIView(APIView):
     )
     def put(self, request, *args, **kwargs):
         serializer = InstituteSerializer(request.user, data=request.data, partial=True)
+        print(serializer)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(
@@ -283,6 +285,7 @@ class StudentListCreateAPIView(APIView):
                 | Q(unique_code__iexact=search)
                 | Q(email__istartswith=search)
             )
+        print(batch)
         if batch and int(batch):
             Q_filter &= Q(student_profile__batch_id=batch)
         match sort:
@@ -290,6 +293,7 @@ class StudentListCreateAPIView(APIView):
                 order_by = "-first_name"
             case _:
                 order_by = "first_name"
+        print(Q_filter)
         # According to filtered batches listing all the students
         students = (
             User.objects.filter(Q_filter)
@@ -300,11 +304,11 @@ class StudentListCreateAPIView(APIView):
         total_page = len(students) // paginator.page_size
         queryset = paginator.paginate_queryset(students, request)
         serializer = UserStudentSerializer(queryset, many=True)
-        print(serializer.data)
         response_data = {
             "total_page": total_page,
             "students": serializer.data,
         }
+        print(response_data)
         return Response(response_data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(

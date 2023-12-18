@@ -96,11 +96,16 @@ class InstitutePaymentDetailSerializer(serializers.ModelSerializer):
 
 class UserStudentProfileSerializer(serializers.ModelSerializer):
     batch = BatchSerializer(read_only=True)
+    date_of_birth = serializers.CharField()
 
     class Meta:
         model = StudentProfile
         exclude = ("user", "id")
         depth = 1
+    
+    def validate_date_of_birth(self,value): 
+        return value.split("T")[0]
+        
 
 
 class UserStudentSerializer(serializers.ModelSerializer):

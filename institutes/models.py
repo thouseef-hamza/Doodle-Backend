@@ -4,6 +4,7 @@ from teachers.models import TeacherProfile
 from datetime import datetime
 from django.utils import timezone
 from payments.models import UserPaymentDetail
+from django.conf import settings
 
 # Create your models here.
 
@@ -12,7 +13,9 @@ class InstituteProfile(models.Model):
     user = models.OneToOneField(
         User, models.CASCADE, related_name="institute_profile", primary_key=True
     )
-    profile_image = models.ImageField(upload_to="profile/", null=True, blank=True)
+    profile_picture = models.URLField(
+        default=settings.CLOUDINARY_DEFAULT_INSTITUTE_IMAGE_LINK
+    )
     address = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
@@ -45,8 +48,8 @@ class Batch(models.Model):
     institute_payment_detail = models.ForeignKey(
         UserPaymentDetail, on_delete=models.CASCADE, null=True
     )
-    batch_fees = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
-    fee_penalty = models.DecimalField(max_digits=10, decimal_places=2,default=0.00)
+    batch_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    fee_penalty = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     scheduled_date = models.DateTimeField(null=True)
     is_scheduled = models.BooleanField(default=False)
     due_date = models.DateTimeField(null=True)
