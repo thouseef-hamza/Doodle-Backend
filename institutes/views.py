@@ -122,11 +122,10 @@ class BatchListCreateAPIView(APIView):
                 order_by = "name"
         instance = Batch.objects.filter(Q_filter).order_by(order_by)
         paginator = SmallResultPagination()
-        total_page = len(instance) // paginator.page_size
         queryset = paginator.paginate_queryset(instance, request)
         serializer = BatchSerializer(queryset, many=True)
         response_data = {
-            "total_page": total_page,
+            "total_page": paginator.page.paginator.num_pages,
             "batch": serializer.data,
         }
         return Response(response_data, status=status.HTTP_200_OK)
@@ -298,11 +297,10 @@ class StudentListCreateAPIView(APIView):
             .order_by(order_by)
         )
         paginator = SmallResultPagination()
-        total_page = len(students) // paginator.page_size
         queryset = paginator.paginate_queryset(students, request)
         serializer = UserStudentSerializer(queryset, many=True)
         response_data = {
-            "total_page": total_page,
+            "total_page": paginator.page.paginator.num_pages,
             "students": serializer.data,
         }
         return Response(response_data, status=status.HTTP_200_OK)
@@ -336,7 +334,7 @@ class StudentListCreateAPIView(APIView):
             )
             password = generate_random_password()
             student.unique_code = "STU %06d" % student.id
-            student.password = password
+            student.set_password(password)
             student.save(update_fields=["unique_code", "password"])
             student_profile = StudentProfile.objects.filter(user=student).first()
             student_profile.batch = batch
@@ -349,7 +347,7 @@ class StudentListCreateAPIView(APIView):
                 message=f"""Dear{student.first_name + " "+student.last_name}
                 Your Login Credentials For Your Class Room Are:
                 Your Code :- {student.unique_code},
-                Your Password :- {student.password}
+                Your Password :- {password}
                 """,
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[student.email],
@@ -515,9 +513,11 @@ class StudentPaymentListCreateAPIView(APIView):
             .values()
         )
         paginator = SmallResultPagination()
-        total_page = len(instance) // paginator.page_size
         queryset = paginator.paginate_queryset(instance, request)
-        response_data = {"total_page": total_page, "students": queryset}
+        response_data = {
+            "total_page": paginator.page.paginator.num_pages,
+            "students": queryset,
+        }
         return Response(response_data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
@@ -567,9 +567,11 @@ class StudentPaymentRetrieveUpdateAPIView(APIView):
             if not instance.is_notified:
                 pass
             instance.save()
-            return Response({"msg":"Student Payment Updated Successfully"},status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"msg": "Student Payment Updated Successfully"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class InstituteDashboardAPIView(APIView):
