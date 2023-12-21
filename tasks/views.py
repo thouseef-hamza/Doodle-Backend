@@ -13,11 +13,15 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Prefetch
 from drf_yasg.utils import swagger_auto_schema
 from silk.profiling.profiler import silk_profile
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from institutes.pagination import LargeResultPagination
 
 # Create your views here.
 
 
 class InstituteTaskListCreateAPIView(APIView):
+    authentication_classes = (JWTAuthentication,IsAuthenticated)
+
     @swagger_auto_schema(
         tags=["Institute Task"],
         operation_description="Institute Task List",
@@ -32,12 +36,18 @@ class InstituteTaskListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         # Each Institute Have Their Own Tasks,
         # So I filtered based on the institute this will makes only effifcient filtering
-        queryset = Task.objects.filter(assigned_by=request.user.id).values(
+        instance = Task.objects.filter(assigned_by=request.user.id).values(
             "id", "title", "description", "task_type"
         )
-        if not queryset:
+        if not instance:
             return Response({}, status=status.HTTP_200_OK)
-        return Response(queryset, status=status.HTTP_200_OK)
+        paginator=LargeResultPagination()
+        queryset=paginator.paginate_queryset(instance,request)
+        response_data={
+            "total_page":len(instance) // paginator.page_size,
+            "tasks":queryset
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         tags=["Institute Task"],
@@ -85,6 +95,7 @@ class InstituteTaskListCreateAPIView(APIView):
                 task.assigned_to.add(*users)  # unpacking from [1,2,3,4...] to 1, 2, 3
                 task.save()
             return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -102,16 +113,16 @@ class InstituteTaskUpdateAPIView(APIView):
             500: "Server Error",
         },
     )
-    @silk_profile(name="Ins Task Update")
     def get(self, request, pk=None, *args, **kwargs):
         # Each Institute Have Their Own Tasks,
         # So I filtered based on the institute this will makes only effifcient filtering
         instance = (
-            Task.objects.filter(id=pk, assigned_by=request.user.id).values().first()
+            Task.objects.filter(id=pk, assigned_by=request.user.id).first()
         )
         if not instance:
             return Response({}, status=status.HTTP_404_NOT_FOUND)
-        return Response(instance, status=status.HTTP_200_OK)
+        serializer=TaskSerializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         tags=["Institute Task"],
@@ -124,12 +135,12 @@ class InstituteTaskUpdateAPIView(APIView):
             500: "Server Error",
         },
     )
-    @silk_profile(name="Ins Task Update")
     def put(self, request, pk=None, *args, **kwargs):
         instance = self.get_queryset(pk, request.user.id)
         if not instance:
             return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = InstituteTaskCreateSerializer(data=request.data)
+        print(serializer)
         if serializer.is_valid():
             assigned_to = serializer.validated_data.get("assigned_to")
             instance.title = serializer.validated_data.get("title", instance.title)
@@ -159,6 +170,7 @@ class InstituteTaskUpdateAPIView(APIView):
             elif instance.task_type == "batch":
                 Q_filter = Q(student_profile__batch__id__in=assigned_to)
             users = User.objects.filter(Q_filter).values_list("id", flat=True)
+            instance.assigned_to.clear()
             instance.assigned_to.add(*users)
             instance.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -264,8 +276,9 @@ class StudentTaskAssignmentGetUpdateAPIView(APIView):
         },
     )
     def get(self, request, pk=None, *args, **kwargs):
-        user_details = self.get_student_queryset(pk)
-        serializer = TaskAssignmentSerializer(user_details, many=True)
+        user_details = self.get_student_queryset(pk).first()
+        serializer = TaskAssignmentSerializer(user_details)
+        print(serializer.data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(

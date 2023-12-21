@@ -39,5 +39,7 @@ urlpatterns = [
         views.InstitutePaymentDetailRetrieveUpdateAPIView.as_view(),
         name="institute-payment-detail-retrieve-update",
     ),
-    path("students/payments/<int:pk>/",views.StudentPaymentListRetrieveUpdateAPIView.as_view())
+    path(
+        "students/payments/<int:pk>/", views.StudentPaymentListCreateAPIView.as_view()
+    ),
 ]

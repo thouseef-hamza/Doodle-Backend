@@ -29,6 +29,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from payments.models import StudentPayment
 from .pagination import SmallResultPagination
+from payments.api.serializers import StudentPaymentPostSerailizer
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -60,11 +61,9 @@ class InstituteProfileGetUpdateAPIView(APIView):
     )
     def put(self, request, *args, **kwargs):
         serializer = InstituteSerializer(request.user, data=request.data, partial=True)
-        print(serializer)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(
@@ -285,7 +284,6 @@ class StudentListCreateAPIView(APIView):
                 | Q(unique_code__iexact=search)
                 | Q(email__istartswith=search)
             )
-        print(batch)
         if batch and int(batch):
             Q_filter &= Q(student_profile__batch_id=batch)
         match sort:
@@ -293,7 +291,6 @@ class StudentListCreateAPIView(APIView):
                 order_by = "-first_name"
             case _:
                 order_by = "first_name"
-        print(Q_filter)
         # According to filtered batches listing all the students
         students = (
             User.objects.filter(Q_filter)
@@ -308,7 +305,6 @@ class StudentListCreateAPIView(APIView):
             "total_page": total_page,
             "students": serializer.data,
         }
-        print(response_data)
         return Response(response_data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
@@ -507,23 +503,73 @@ class StudentGetUpdateAPIView(APIView):
         )
 
 
-class StudentPaymentListRetrieveUpdateAPIView(APIView):
+class StudentPaymentListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
-        print(args)
-        print(kwargs.get("pk"))
         search = request.GET.get("search", None)
-        Q_filter = Q(sender=request.user)
+        Q_filter = Q(sender=request.user) & Q(created_at__month=timezone.now().month)
         if search:
             Q_filter &= Q()
         instance = (
             StudentPayment.objects.filter(Q_filter)
-            .select_related(batch=F("student__batch__name"))
+            .select_related(batch_name=F("student__batch__name"))
             .values()
         )
+        paginator = SmallResultPagination()
+        total_page = len(instance) // paginator.page_size
+        queryset = paginator.paginate_queryset(instance, request)
+        response_data = {"total_page": total_page, "students": queryset}
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        from payments.models import UserPaymentDetail
+
+        serializer = StudentPaymentPostSerailizer(data=request.data)
+        if serializer.is_valid():
+            payment_detail = get_object_or_404(UserPaymentDetail, id=request.user.id)
+            payment = StudentPayment.objects.create(
+                sender=payment_detail,
+                student=serializer.validated_data.get("student", None),
+                fee_amount=serializer.validated_data.get("fee_amount", None),
+                fee_paid=serializer.validated_data.get("fee_paid", None),
+                fee_status=serializer.validated_data.get("fee_status", None),
+            )
+            if payment.fee_paid:
+                pass
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors)
+
+
+class StudentPaymentRetrieveUpdateAPIView(APIView):
+    def get_queryset(self, user, pk):
+        return StudentPayment.objects.filter(sender=user, id=pk)
+
+    def get(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(request.user.id, pk).values().first()
         return Response(instance, status=status.HTTP_200_OK)
 
-    def put(self, request, *args, **kwargs):
-        pass
+    def put(self, request, pk=None, *args, **kwargs):
+        instance = self.get_queryset(request.user.id, pk).first()
+        if instance is None:
+            return Response(
+                {"msg": "Student Payment Not Found"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer = StudentPaymentPostSerailizer(data=request.data)
+        if serializer.is_valid():
+            instance.fee_amount = serializer.validated_data.get(
+                "fee_amount", instance.fee_amount
+            )
+            instance.fee_paid = serializer.validated_data.get(
+                "fee_paid", instance.fee_paid
+            )
+            instance.fee_status = serializer.validated_data.get(
+                "fee_status", instance.fee_status
+            )
+            if not instance.is_notified:
+                pass
+            instance.save()
+            return Response({"msg":"Student Payment Updated Successfully"},status=status.HTTP_200_OK)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            
 
 
 class InstituteDashboardAPIView(APIView):
@@ -535,7 +581,6 @@ class InstituteDashboardAPIView(APIView):
             batch_count=Count("id"), student_count=Count("student_batch")
         )
 
-        print(instance)
         return Response(instance, status=status.HTTP_200_OK)
 
 

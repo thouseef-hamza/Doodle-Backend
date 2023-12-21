@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # For Creating Task
 class InstituteTaskCreateSerializer(serializers.ModelSerializer):
     assigned_to = serializers.ListField()
+    due_date=serializers.CharField()
 
     class Meta:
         model = Task
@@ -26,6 +27,9 @@ class InstituteTaskCreateSerializer(serializers.ModelSerializer):
 
     def validate_title(self, value):
         return value.title()
+    
+    def validate_due_date(self,value):
+        return value.split("T")[0]
 
 
 # For Listing, and Getting Task
@@ -46,6 +50,7 @@ class UserTaskSerializer(serializers.ModelSerializer):
         fields = ("id", "first_name", "last_name", "unique_code", "email", "batch_name")
 
 
+
 # For Deserialization for Get Request
 class TaskAssignmentSerializer(serializers.ModelSerializer):
     user = UserTaskSerializer(read_only=True)
@@ -54,3 +59,7 @@ class TaskAssignmentSerializer(serializers.ModelSerializer):
         model = TaskAssignment
         exclude = ("task",)
         read_only_fields = ("id", "task_id", "user_id")
+        
+        
+
+
