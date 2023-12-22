@@ -6,6 +6,7 @@ from .api.serializers import (
     UserStudentSerializer,
     JobCreateUpdateSerializer,
     InstitutePaymentDetailSerializer,
+    DashboardGETSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -21,7 +22,7 @@ from accounts.helpers.password_generator import generate_random_password
 from django.core.mail import EmailMessage
 from drf_yasg.utils import swagger_auto_schema
 from accounts.models import User
-from django.db.models import F, Count
+from django.db.models import F, Count, Sum
 from datetime import date
 from payments.models import UserPaymentDetail
 from django.utils import timezone
@@ -30,6 +31,7 @@ from django.conf import settings
 from payments.models import StudentPayment
 from .pagination import SmallResultPagination
 from payments.api.serializers import StudentPaymentPostSerailizer
+from django.utils import timezone
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -579,11 +581,31 @@ class InstituteDashboardAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
-        instance = Batch.objects.filter(institute=request.user.id).aggregate(
-            batch_count=Count("id"), student_count=Count("student_batch")
+        batch_data = Batch.objects.filter(institute=request.user.id).aggregate(
+            batch_count=Count("id", distinct=True),
+            student_count=Count("student_batch", distinct=True),
         )
-
-        return Response(instance, status=status.HTTP_200_OK)
+        total_revenue_data = UserPaymentDetail.objects.filter(
+            user=request.user
+        ).aggregate(total_revenue=Sum("studentpayment__fee_paid"))
+        # previous_month = timezone.now().replace(day=1) - timezone.timedelta(days=1)
+        this_month_revenue_data = UserPaymentDetail.objects.filter(
+            user=request.user, studentpayment__created_at__month=timezone.now().month
+        ).aggregate(
+            this_month_revenue=Sum("studentpayment__fee_paid"),
+            remaining_amount=Sum("studentpayment__fee_amount") - Sum("studentpayment__fee_paid"),
+        )
+        serializer = DashboardGETSerializer(
+            {
+                "batch_count": batch_data["batch_count"],
+                "student_count": batch_data["student_count"],
+                "total_revenue": total_revenue_data["total_revenue"],
+                "this_month_revenue": this_month_revenue_data["this_month_revenue"],
+                "remaining_amount": this_month_revenue_data["remaining_amount"],
+            }
+        )
+        print(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ================================== Version 2 Release Features Job Portal For Teachers ==================================================================================
