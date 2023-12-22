@@ -14,13 +14,13 @@ from django.db.models import Prefetch
 from drf_yasg.utils import swagger_auto_schema
 from silk.profiling.profiler import silk_profile
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from institutes.pagination import LargeResultPagination
+from institutes.pagination import LargeResultPagination, SmallResultPagination
 
 # Create your views here.
 
 
 class InstituteTaskListCreateAPIView(APIView):
-    authentication_classes = (JWTAuthentication,IsAuthenticated)
+    authentication_classes = (JWTAuthentication, IsAuthenticated)
 
     @swagger_auto_schema(
         tags=["Institute Task"],
@@ -41,11 +41,11 @@ class InstituteTaskListCreateAPIView(APIView):
         )
         if not instance:
             return Response({}, status=status.HTTP_200_OK)
-        paginator=LargeResultPagination()
-        queryset=paginator.paginate_queryset(instance,request)
-        response_data={
-            "total_page":len(instance) // paginator.page_size,
-            "tasks":queryset
+        paginator = LargeResultPagination()
+        queryset = paginator.paginate_queryset(instance, request)
+        response_data = {
+            "total_page": paginator.page.paginator.num_pages,
+            "tasks": queryset,
         }
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -116,12 +116,10 @@ class InstituteTaskUpdateAPIView(APIView):
     def get(self, request, pk=None, *args, **kwargs):
         # Each Institute Have Their Own Tasks,
         # So I filtered based on the institute this will makes only effifcient filtering
-        instance = (
-            Task.objects.filter(id=pk, assigned_by=request.user.id).first()
-        )
+        instance = Task.objects.filter(id=pk, assigned_by=request.user.id).first()
         if not instance:
             return Response({}, status=status.HTTP_404_NOT_FOUND)
-        serializer=TaskSerializer(instance)
+        serializer = TaskSerializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
@@ -189,19 +187,22 @@ class InstituteTaskUpdateAPIView(APIView):
     @silk_profile(name="Ins Task Update")
     def delete(self, request, pk=None, *args, **kwargs):
         instance = self.get_queryset(pk, request.user.id)
-        # clear = request.GET.get("clear", None)
-        # remove = request.GET.getlist("remove", None)
-        # if clear or remove:
-        #     if clear:
-        #         task.assigned_to.clear()
-        #         task.save()
-        #         return Response(status=status.HTTP_205_RESET_CONTENT)
-        #     # For Removing Specific users from junction table
-        #     if remove:
-        #         users = User.objects.filter(id__in=remove)
-        #         task.assigned_to.remove(*users)
-        #         task.save()
-        #         return Response({"msg":"Specified User Removed Successfully"},status=status.HTTP_200_OK)
+        clear = request.GET.get("clear", None)
+        remove = request.GET.getlist("remove", None)
+        if clear or remove:
+            if clear:
+                instance.assigned_to.clear()
+                instance.save()
+                return Response(status=status.HTTP_205_RESET_CONTENT)
+            # For Removing Specific users from junction table
+            if remove:
+                users = User.objects.filter(id__in=remove)
+                instance.assigned_to.remove(*users)
+                instance.save()
+                return Response(
+                    {"msg": "Specified User Removed Successfully"},
+                    status=status.HTTP_200_OK,
+                )
         if instance:
             instance.delete()
             return Response(
@@ -215,28 +216,25 @@ class StudentTaskAssignmentListAPIView(APIView):
     # This view is for Institute
     def get(self, request, task_id=None, *args, **kwargs):
         search = request.GET.get("search", None)
-        completed = request.GET.get("completed", None)
-        submitted = request.GET.get("submitted", None)
-        task_status = request.GET.get("status", None)
+        # completed = request.GET.get("completed", None)
+        # submitted = request.GET.get("submitted", None)
+        # task_status = request.GET.get("status", None)
+        sort = request.GET.get("sort", None)
         Q_filter = Q(task_id=task_id)
-        if completed or submitted or task_status or search:
-            if completed:
-                Q_filter &= Q(is_completed=True)
-            elif submitted:
+        Order_by=""
+        match sort:
+            case "submitted":
                 Q_filter &= Q(is_submitted=True)
-            elif task_status and task_status.lower() in [
-                "good",
-                "fair",
-                "needs_improvement",
-                "reviewing",
-            ]:
-                Q_filter &= Q(status=task_status.lower())
-            elif search:
-                Q_filter &= (
-                    Q(user__first_name__icontains=search)
-                    | Q(user__last_name__icontains=search)
-                    | Q(user__unique_code__icontains=search)
-                )
+            case "completed":
+                Q_filter &= Q(is_completed=True)
+            case _:
+                Order_by = "id"
+        if search:
+            Q_filter &= (
+                Q(user__first_name__istartswith=search)
+                | Q(user__unique_code__istartswith=search) |
+                Q (user__email__iexact=search)
+            )
         # Fetch Details from 4 models (User (Unique Code Needed) <--- O to O ---> Student Profile (In this profile Have Batch Foriegn) <--- F to O ---> Batch (batch name needed))
         # Used F() for not making nested batch name
         queryset = TaskAssignment.objects.prefetch_related(
@@ -246,9 +244,14 @@ class StudentTaskAssignmentListAPIView(APIView):
                     batch_name=F("student_profile__batch__name")
                 ),
             ),
-        ).filter(Q_filter)
-        serializer = TaskAssignmentSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        ).filter(Q_filter).order_by(Order_by)
+        paginator = SmallResultPagination()
+        instance = paginator.paginate_queryset(queryset, request)
+        response_data = {
+            "total_page": paginator.page.paginator.num_pages,
+            "taskassignlist": TaskAssignmentSerializer(instance, many=True).data,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class StudentTaskAssignmentGetUpdateAPIView(APIView):

@@ -6,6 +6,7 @@ from .api.serializers import (
     UserStudentSerializer,
     JobCreateUpdateSerializer,
     InstitutePaymentDetailSerializer,
+    DashboardGETSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -21,7 +22,7 @@ from accounts.helpers.password_generator import generate_random_password
 from django.core.mail import EmailMessage
 from drf_yasg.utils import swagger_auto_schema
 from accounts.models import User
-from django.db.models import F, Count
+from django.db.models import F, Count, Sum
 from datetime import date
 from payments.models import UserPaymentDetail
 from django.utils import timezone
@@ -30,6 +31,7 @@ from django.conf import settings
 from payments.models import StudentPayment
 from .pagination import SmallResultPagination
 from payments.api.serializers import StudentPaymentPostSerailizer
+from django.utils import timezone
 
 
 class InstituteProfileGetUpdateAPIView(APIView):
@@ -122,11 +124,10 @@ class BatchListCreateAPIView(APIView):
                 order_by = "name"
         instance = Batch.objects.filter(Q_filter).order_by(order_by)
         paginator = SmallResultPagination()
-        total_page = len(instance) // paginator.page_size
         queryset = paginator.paginate_queryset(instance, request)
         serializer = BatchSerializer(queryset, many=True)
         response_data = {
-            "total_page": total_page,
+            "total_page": paginator.page.paginator.num_pages,
             "batch": serializer.data,
         }
         return Response(response_data, status=status.HTTP_200_OK)
@@ -298,11 +299,10 @@ class StudentListCreateAPIView(APIView):
             .order_by(order_by)
         )
         paginator = SmallResultPagination()
-        total_page = len(students) // paginator.page_size
         queryset = paginator.paginate_queryset(students, request)
         serializer = UserStudentSerializer(queryset, many=True)
         response_data = {
-            "total_page": total_page,
+            "total_page": paginator.page.paginator.num_pages,
             "students": serializer.data,
         }
         return Response(response_data, status=status.HTTP_200_OK)
@@ -336,7 +336,7 @@ class StudentListCreateAPIView(APIView):
             )
             password = generate_random_password()
             student.unique_code = "STU %06d" % student.id
-            student.password = password
+            student.set_password(password)
             student.save(update_fields=["unique_code", "password"])
             student_profile = StudentProfile.objects.filter(user=student).first()
             student_profile.batch = batch
@@ -349,7 +349,7 @@ class StudentListCreateAPIView(APIView):
                 message=f"""Dear{student.first_name + " "+student.last_name}
                 Your Login Credentials For Your Class Room Are:
                 Your Code :- {student.unique_code},
-                Your Password :- {student.password}
+                Your Password :- {password}
                 """,
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[student.email],
@@ -515,9 +515,11 @@ class StudentPaymentListCreateAPIView(APIView):
             .values()
         )
         paginator = SmallResultPagination()
-        total_page = len(instance) // paginator.page_size
         queryset = paginator.paginate_queryset(instance, request)
-        response_data = {"total_page": total_page, "students": queryset}
+        response_data = {
+            "total_page": paginator.page.paginator.num_pages,
+            "students": queryset,
+        }
         return Response(response_data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
@@ -567,9 +569,11 @@ class StudentPaymentRetrieveUpdateAPIView(APIView):
             if not instance.is_notified:
                 pass
             instance.save()
-            return Response({"msg":"Student Payment Updated Successfully"},status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"msg": "Student Payment Updated Successfully"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class InstituteDashboardAPIView(APIView):
@@ -577,11 +581,31 @@ class InstituteDashboardAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
-        instance = Batch.objects.filter(institute=request.user.id).aggregate(
-            batch_count=Count("id"), student_count=Count("student_batch")
+        batch_data = Batch.objects.filter(institute=request.user.id).aggregate(
+            batch_count=Count("id", distinct=True),
+            student_count=Count("student_batch", distinct=True),
         )
-
-        return Response(instance, status=status.HTTP_200_OK)
+        total_revenue_data = UserPaymentDetail.objects.filter(
+            user=request.user
+        ).aggregate(total_revenue=Sum("studentpayment__fee_paid"))
+        # previous_month = timezone.now().replace(day=1) - timezone.timedelta(days=1)
+        this_month_revenue_data = UserPaymentDetail.objects.filter(
+            user=request.user, studentpayment__created_at__month=timezone.now().month
+        ).aggregate(
+            this_month_revenue=Sum("studentpayment__fee_paid"),
+            remaining_amount=Sum("studentpayment__fee_amount") - Sum("studentpayment__fee_paid"),
+        )
+        serializer = DashboardGETSerializer(
+            {
+                "batch_count": batch_data["batch_count"],
+                "student_count": batch_data["student_count"],
+                "total_revenue": total_revenue_data["total_revenue"],
+                "this_month_revenue": this_month_revenue_data["this_month_revenue"],
+                "remaining_amount": this_month_revenue_data["remaining_amount"],
+            }
+        )
+        print(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ================================== Version 2 Release Features Job Portal For Teachers ==================================================================================

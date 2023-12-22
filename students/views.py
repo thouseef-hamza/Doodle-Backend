@@ -4,14 +4,18 @@ from rest_framework import status
 from accounts.models import User
 from .api.serializers import (
     UserStudentSerializer,
-    UserStudentProfileUpdateSerializer,
+    UserStudentUpdateSerializer,
     UserStudentTaskAssignmentSerializer,
     UserStudentPaymentUpdateSerializer,
+    TaskAssignmentGetSerializer,
+    ClassmatesGetSerializer,
 )
 from tasks.models import TaskAssignment, Task
 from django.db.models import F
 from payments.models import StudentPayment
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from institutes.pagination import SmallResultPagination
+from django.db.models import Q
 
 
 class UserStudentRetrieveUpdateAPIView(APIView):
@@ -29,7 +33,8 @@ class UserStudentRetrieveUpdateAPIView(APIView):
         instance = self.get_queryset(request.user.id)
         if not instance:
             return Response({"msg": "User Not Found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = UserStudentProfileUpdateSerializer(instance, request.data)
+        serializer = UserStudentUpdateSerializer(instance, data=request.data)
+        print(serializer)
         if serializer.is_valid():
             instance.first_name = serializer.validated_data.get(
                 "first_name", instance.first_name
@@ -41,33 +46,11 @@ class UserStudentRetrieveUpdateAPIView(APIView):
             instance.phone_number = serializer.validated_data.get(
                 "phone_number", instance.phone_number
             )
-            profile_data = serializer.validated_data.pop("profile")
-            instance.student_profile.gender = profile_data.get(
-                "gender", instance.student_profile.gender
-            )
-            instance.student_profile.date_of_birth = profile_data.get(
-                "date_of_birth", instance.student_profile.date_of_birth
-            )
-            instance.student_profile.profile_picture = profile_data.get(
-                "profile_picture", instance.student_profile.profile_picture
-            )
-            instance.student_profile.address = profile_data.get(
-                "address", instance.student_profile.address
-            )
-            instance.student_profile.city = profile_data.get(
-                "city", instance.student_profile.city
-            )
-            instance.student_profile.state = profile_data.get(
-                "state", instance.student_profile.state
-            )
-            instance.student_profile.postal_code = profile_data.get(
-                "postal_code", instance.student_profile.postal_code
-            )
-            instance.student_profile.save()
             instance.save(
                 update_fields=["first_name", "last_name", "email", "phone_number"]
             )
             return Response(serializer.data, status=status.HTTP_200_OK)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, *args, **kwargs):
@@ -76,42 +59,35 @@ class UserStudentRetrieveUpdateAPIView(APIView):
         pass
 
 
-class UserStudentTaskRetrieveListAPIView(APIView):
+class UserStudentTaskListAPIView(APIView):
     def get(self, request, *args, **kwargs):
-        instance = Task.objects.filter(assigned_to=request.user.id).values()
-        return Response(instance, status=status.HTTP_200_OK)
+        instance = TaskAssignment.objects.filter(
+            assigned_to=request.user.id
+        ).select_related("task")
+        paginator = SmallResultPagination()
+        queryset = paginator.paginate_queryset(instance, request)
+        response_data = {
+            "total_page": paginator.page.paginator.num_pages,
+            "students": TaskAssignmentGetSerializer(queryset, many=True).data,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
-class UserStudentTaskAssignmentRetrieveUpdateAPIView(APIView):
+class UserStudentTaskRetrieveUpdateAPIView(APIView):
     def get_queryset(self, _id, user):
-        return TaskAssignment.objects.filter(task_id=_id, user_id=user.id)
+        return (
+            TaskAssignment.objects.filter(id=_id, user_id=user.id)
+            .select_related("task")
+            .first()
+        )
 
     def get(self, request, pk=None, *args, **kwargs):
-        instance = (
-            self.get_queryset(task_id=pk, user=request.user)
-            .select_related("task")
-            .values(
-                "id",
-                "task_id",
-                "submitted_url",
-                "submitted_document",
-                "submitted_url",
-                "feedback",
-                "is_submitted",
-                "is_completed",
-                task_title=F("task__title"),
-                task_description=F("task__description"),
-                assigned_by=F("task__assigned_by"),
-                task_url=F("task__task_url"),
-                document=F("task__document"),
-                due_date=F("task__due_date"),
-                created_at=F("task__created_at"),
-            )
-        )
-        return Response(instance, status=status.HTTP_200_OK)
+        instance = self.get_queryset(task_id=pk, user=request.user)
+        serializer = TaskAssignmentGetSerializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk=None, *args, **kwargs):
-        instance = self.get_queryset(task_id=pk, user=request.user.id).first()
+        instance = self.get_queryset(task_id=pk, user=request.user.id)
         serializer = UserStudentTaskAssignmentSerializer(data=request.data)
         if serializer.is_valid():
             instance.submitted_url = serializer.validated_data.get(
@@ -177,5 +153,28 @@ class UserStudentPaymentRetrieveUpdateAPIView(APIView):
                 "payment_method", instance.payment_method
             )
             instance.save()
-            return Response({"msg":"Payment Updated Successfully"},status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"msg": "Payment Updated Successfully"}, status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ClassmatesListAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        search = request.GET.get("search", None)
+        Q_filter = Q(student_profile__batch_id=request.user.student_profile.batch.id)
+        if search:
+            Q_filter &= Q(first_name__istartswith=search) | Q(email__iexact=search)
+        instance = (
+            User.objects.exclude(id=request.user.id)
+            .filter(Q_filter)
+            .select_related("student_profile")
+        )
+        paginator = SmallResultPagination()
+        queryset = paginator.paginate_queryset(instance, request)
+        response_data = {
+            "total_page": paginator.page.paginator.num_pages,
+            "students": ClassmatesGetSerializer(queryset, many=True).data,
+        }
+        print(response_data)
+        return Response(response_data, status=status.HTTP_200_OK)

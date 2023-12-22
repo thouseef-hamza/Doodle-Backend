@@ -84,8 +84,7 @@ class BatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Batch
         fields = "__all__"
-        read_only_fields = ("institute","id")
-
+        read_only_fields = ("institute", "id")
 
 
 class InstitutePaymentDetailSerializer(serializers.ModelSerializer):
@@ -102,10 +101,9 @@ class UserStudentProfileSerializer(serializers.ModelSerializer):
         model = StudentProfile
         exclude = ("user", "id")
         depth = 1
-    
-    def validate_date_of_birth(self,value): 
+
+    def validate_date_of_birth(self, value):
         return value.split("T")[0]
-        
 
 
 class UserStudentSerializer(serializers.ModelSerializer):
@@ -190,3 +188,11 @@ class JobCreateUpdateSerializer(serializers.ModelSerializer):
 
     def category(self, value):
         return value.lower()
+
+
+class DashboardGETSerializer(serializers.Serializer):
+    batch_count = serializers.IntegerField()
+    student_count = serializers.IntegerField()
+    total_revenue = serializers.DecimalField(max_digits=10, decimal_places=2)
+    this_month_revenue = serializers.DecimalField(max_digits=10, decimal_places=2)
+    remaining_amount = serializers.DecimalField(max_digits=10, decimal_places=2)

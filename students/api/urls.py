@@ -7,6 +7,7 @@ urlpatterns = [
         views.UserStudentRetrieveUpdateAPIView.as_view(),
         name="student-profile",
     ),
-    # path("tasks"),
-    # path("task/<int:pk>/")
+    path("classmates/", views.ClassmatesListAPIView.as_view()),
+    path("task/", views.UserStudentTaskListAPIView.as_view()),
+    path("task/<int:pk>/", views.UserStudentTaskRetrieveUpdateAPIView.as_view()),
 ]
