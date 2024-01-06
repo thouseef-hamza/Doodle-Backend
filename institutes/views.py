@@ -7,6 +7,7 @@ from .api.serializers import (
     JobCreateUpdateSerializer,
     InstitutePaymentDetailSerializer,
     DashboardGETSerializer,
+    StudentPaymentGETSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -176,6 +177,7 @@ class BatchGetUpdateAPIView(APIView):
             Q(id=pk) & Q(institute__user_id=request.user.id)
         ).first()
         serializer = BatchSerializer(queryset)
+        print(serializer.data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
@@ -194,6 +196,7 @@ class BatchGetUpdateAPIView(APIView):
             Q(id=pk) & Q(institute__user_id=request.user.id)
         ).first()
         serializer = BatchSerializer(data=request.data)
+        print(serializer)
         if serializer.is_valid():
             instance.name = serializer.validated_data.get("name", instance.name)
             instance.start_date = serializer.validated_data.get(
@@ -217,13 +220,11 @@ class BatchGetUpdateAPIView(APIView):
             instance.due_date = serializer.validated_data.get(
                 "due_date", instance.due_date
             )
-            payment_id = request.data.get("payment_id", None)
-            if payment_id:
-                payment_detail = UserPaymentDetail.objects.filter(
-                    pk=int(payment_id)
-                ).first()
-                if payment_detail:
-                    instance.institute_payment_detail = payment_detail
+            institute_payment_detail = serializer.validated_data.get(
+                "institute_payment_detail", None
+            )
+            if institute_payment_detail:
+                instance.institute_payment_detail = institute_payment_detail
             instance.save(
                 update_fields=[
                     "name",
@@ -506,20 +507,20 @@ class StudentGetUpdateAPIView(APIView):
 class StudentPaymentListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         search = request.GET.get("search", None)
-        Q_filter = Q(sender=request.user) & Q(created_at__month=timezone.now().month)
+        Q_filter = Q(sender__user=request.user.id) & Q(
+            created_at__month=timezone.now().month
+        )
         if search:
             Q_filter &= Q()
-        instance = (
-            StudentPayment.objects.filter(Q_filter)
-            .select_related(batch_name=F("student__batch__name"))
-            .values()
-        )
+        instance = StudentPayment.objects.filter(Q_filter).values("fee_amount","fee_paid","fee_status","payment_method","payment_id",batch_name=F("student__user__student_profile__batch__name"),student_name=F("student__user__first_name"))
+        serializer=StudentPaymentGETSerializer(instance,many=True)
         paginator = SmallResultPagination()
-        queryset = paginator.paginate_queryset(instance, request)
+        queryset = paginator.paginate_queryset(serializer.data, request)
         response_data = {
             "total_page": paginator.page.paginator.num_pages,
             "students": queryset,
         }
+        print(response_data)
         return Response(response_data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
@@ -593,7 +594,8 @@ class InstituteDashboardAPIView(APIView):
             user=request.user, studentpayment__created_at__month=timezone.now().month
         ).aggregate(
             this_month_revenue=Sum("studentpayment__fee_paid"),
-            remaining_amount=Sum("studentpayment__fee_amount") - Sum("studentpayment__fee_paid"),
+            remaining_amount=Sum("studentpayment__fee_amount")
+            - Sum("studentpayment__fee_paid"),
         )
         serializer = DashboardGETSerializer(
             {

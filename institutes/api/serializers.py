@@ -3,7 +3,7 @@ from ..models import InstituteProfile
 from accounts.models import User
 from ..models import Batch, Topic, Job, Application
 from students.models import StudentProfile
-from payments.models import UserPaymentDetail
+from payments.models import UserPaymentDetail, StudentPayment
 
 
 class InstituteProfileSerializer(serializers.ModelSerializer):
@@ -83,8 +83,19 @@ class BatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Batch
-        fields = "__all__"
-        read_only_fields = ("institute", "id")
+        fields = (
+            "id",
+            "name",
+            "start_date",
+            "description",
+            "institute_payment_detail",
+            "batch_fees",
+            "fee_penalty",
+            "scheduled_date",
+            "is_scheduled",
+            "due_date",
+            "topics",
+        )
 
 
 class InstitutePaymentDetailSerializer(serializers.ModelSerializer):
@@ -165,6 +176,23 @@ class UserStudentSerializer(serializers.ModelSerializer):
             instance=instance.student_profile, validated_data=profile_data
         )
         return super().update(instance, validated_data)
+
+
+class StudentPaymentGETSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField()
+    batch_name = serializers.CharField()
+
+    class Meta:
+        model = StudentPayment
+        fields = (
+            "student_name",
+            "batch_name",
+            "fee_amount",
+            "fee_status",
+            "payment_id",
+            "payment_method",
+            "is_notified",
+        )
 
 
 class JobCreateUpdateSerializer(serializers.ModelSerializer):
