@@ -103,7 +103,7 @@ ASGI_APPLICATION = "doodle.asgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": "doodledb",
         "USER": "doodledb_user",
         "PASSWORD": os.getenv("DATABASE_PASSWORD"),
