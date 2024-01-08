@@ -10,4 +10,5 @@ urlpatterns = [
     path("classmates/", views.ClassmatesListAPIView.as_view()),
     path("task/", views.UserStudentTaskListAPIView.as_view()),
     path("task/<int:pk>/", views.UserStudentTaskRetrieveUpdateAPIView.as_view()),
+    path("stripe/create/checkout/session/",views.StripeCheckoutAPIView.as_view(),name="create-checkout-session")
 ]

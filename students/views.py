@@ -178,3 +178,51 @@ class ClassmatesListAPIView(APIView):
         }
         print(response_data)
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+import stripe
+from django.conf import settings
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+from django.shortcuts import redirect
+from django.http import HttpResponseRedirect
+
+
+class StripeCheckoutAPIView(APIView):
+    def post(self, request, id, *args, **kwargs):
+        student_payment = StudentPayment.objects.filter(pk=id).first()
+        product = stripe.Product.create(
+            name="Total Amount",
+            default_price_data={
+                "unit_amount": student_payment["fee_amount"],
+                "currency": "inr",
+            },
+            expand=["default_price"],
+        )
+        #TODO NEEDED TO CONTINUE FOR INTEGRATION
+        customer=stripe.Customer.create(
+            
+        )
+        try:
+            checkout_session = stripe.checkout.Session.create(
+                line_items=[
+                    {
+                        "price": "price_1OVTpXSG8Rfgh436eXb535zz",
+                        "quantity": 1,
+                    },
+                ],
+                payment_method_types=["card"],
+                mode="payment",
+                success_url=settings.SITE_URL
+                + "/?success=true&session_id={CHECKOUT_SESSION_ID}",
+                cancel_url=settings.SITE_URL + "/?canceled=true",
+            )
+            print(checkout_session)
+
+            return Response(checkout_session.url, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response(
+                {"error": "Something went wrong when creating stripe Checkout Session"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

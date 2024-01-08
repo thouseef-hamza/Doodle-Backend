@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "channels",
     "django_celery_results",
-    "django_celery_beat"
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -99,22 +99,21 @@ ASGI_APPLICATION = "doodle.asgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+DATABASES = {
+    "default":
+}
+
+
 # DATABASES = {
 #     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
+#         "ENGINE": "django.db.backends.postgresql_psycopg2",
+#         "NAME": "DoodleDB",
+#         "USER": "postgres",
+#         "PASSWORD": "2544",
+#         "HOST": "127.0.0.1",
+#         "PORT": "5432",
 #     }
 # }
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": "DoodleDB",
-        "USER": "postgres",
-        "PASSWORD": "2544",
-        "HOST": "127.0.0.1",
-        "PORT": "5432",
-    }
-}
 
 
 # Password validation
@@ -273,7 +272,7 @@ SILKY_PYTHON_PROFILER_BINARY = True
 AGORA_SDK_APP_ID = os.getenv("AGORA_SDK_APP_ID")
 
 
-# Django Channels 
+# Django Channels
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -286,12 +285,18 @@ CHANNEL_LAYERS = {
 
 # CELERY Settings
 
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379'
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Kolkata'
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_BROKER_URL = "redis://127.0.0.1:6379"
+CELERY_ACCEPT_CONTENT = ["application/json"]
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TASK_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Kolkata"
+CELERY_RESULT_BACKEND = "django-db"
 
 # CELERY Beat
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# Stripe Configuration
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+
+# Frontend URL
+SITE_URL = "https://localhost/student/payments"
